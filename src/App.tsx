@@ -17,6 +17,7 @@ import {
   Line,
   AreaChart,
   Area,
+  Legend,
 } from "recharts";
 import {
   Home,
@@ -55,6 +56,7 @@ import {
   RefreshCw,
   AlertTriangle,
   Activity,
+  FileSpreadsheet,
 } from "lucide-react";
 
 // --- APP CONTEXT ---
@@ -301,6 +303,12 @@ interface Usuario {
   criadoEm: string;
 }
 
+interface Attachment {
+  name: string;
+  size: number;
+  type: string;
+}
+
 interface TicketData {
   id: string;
   title: string;
@@ -314,6 +322,7 @@ interface TicketData {
   created: string;
   sla: string;
   description: string;
+  attachments?: Attachment[];
 }
 
 const MOCK_TICKETS: TicketData[] = [
@@ -718,6 +727,17 @@ function Timeline({ historico, ticketAtivo }: { historico: any[], ticketAtivo: a
         <p className="text-xs text-text-muted mt-1">
           {ticketAtivo.created}
         </p>
+        {ticketAtivo.attachments && ticketAtivo.attachments.length > 0 && (
+          <div className="mt-3 space-y-2">
+            <p className="text-[10px] font-medium text-text-muted uppercase tracking-wider">Anexos:</p>
+            {ticketAtivo.attachments.map((anexo: any, i: number) => (
+              <div key={i} className="flex items-center gap-2 text-xs text-accent-primary hover:underline cursor-pointer bg-accent-primary/5 p-2 rounded border border-accent-primary/10 w-fit">
+                <Paperclip className="w-3 h-4" />
+                <span>{anexo.name} ({(anexo.size / 1024 / 1024).toFixed(2)} MB)</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1312,113 +1332,118 @@ function exportarCSV(linhas: any[], nomeArquivo: string, titulo: string) {
 
 // ---- EXPORTAR XLSX ---- (puro JS, sem biblioteca)
 function exportarXLSX(linhas: any[], nomeArquivo: string, titulo: string, ticketsOriginais: any[], showToast: any) {
-  const headers = Object.keys(linhas[0]);
+  return new Promise<void>((resolve, reject) => {
+    const headers = Object.keys(linhas[0]);
 
-  // Construir XML das planilhas
-  function escaparXML(val: any) {
-    return String(val ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
-  }
+    // Construir XML das planilhas
+    function escaparXML(val: any) {
+      return String(val ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    }
 
-  function celulaStr(val: any, bold = false) {
-    const v = escaparXML(val);
-    return `<c t="inlineStr"${bold ? ' s="1"' : ''}><is><t>${v}</t></is></c>`;
-  }
+    function celulaStr(val: any, bold = false) {
+      const v = escaparXML(val);
+      return `<c t="inlineStr"${bold ? ' s="1"' : ''}><is><t>${v}</t></is></c>`;
+    }
 
-  // Aba 1: Chamados
-  const rowsChamados = [
-    // Título
-    `<row r="1"><c t="inlineStr" s="1"><is><t>${escaparXML(titulo)}</t></is></c></row>`,
-    `<row r="2"><c t="inlineStr"><is><t>Gerado em: ${new Date().toLocaleString('pt-BR')}</t></is></c></row>`,
-    `<row r="3"><c t="inlineStr"><is><t>Total: ${linhas.length} chamados</t></is></c></row>`,
-    `<row r="4"></row>`,
-    // Headers
-    `<row r="5">${headers.map(h => celulaStr(h, true)).join('')}</row>`,
-    // Dados
-    ...linhas.map((linha, i) =>
-      `<row r="${i + 6}">${headers.map(h => celulaStr(linha[h])).join('')}</row>`
-    )
-  ];
+    // Aba 1: Chamados
+    const rowsChamados = [
+      // Título
+      `<row r="1"><c t="inlineStr" s="1"><is><t>${escaparXML(titulo)}</t></is></c></row>`,
+      `<row r="2"><c t="inlineStr"><is><t>Gerado em: ${new Date().toLocaleString('pt-BR')}</t></is></c></row>`,
+      `<row r="3"><c t="inlineStr"><is><t>Total: ${linhas.length} chamados</t></is></c></row>`,
+      `<row r="4"></row>`,
+      // Headers
+      `<row r="5">${headers.map(h => celulaStr(h, true)).join('')}</row>`,
+      // Dados
+      ...linhas.map((linha, i) =>
+        `<row r="${i + 6}">${headers.map(h => celulaStr(linha[h])).join('')}</row>`
+      )
+    ];
 
-  // Aba 2: Resumo por status
-  const resumoStatus = ['Aberto','Em Andamento','Aguardando','Contestado','Resolvido','Fechado'].map(s => ({
-    status: s,
-    total: ticketsOriginais.filter(t => t.status === s).length
-  }));
+    // Aba 2: Resumo por status
+    const resumoStatus = ['Aberto','Em Andamento','Aguardando','Contestado','Resolvido','Fechado'].map(s => ({
+      status: s,
+      total: ticketsOriginais.filter((t: any) => t.status === s).length
+    }));
 
-  const rowsResumo = [
-    `<row r="1">${celulaStr('Status', true)}${celulaStr('Total', true)}</row>`,
-    ...resumoStatus.map((r, i) =>
-      `<row r="${i + 2}">${celulaStr(r.status)}${celulaStr(r.total)}</row>`
-    ),
-    `<row r="${resumoStatus.length + 3}">${celulaStr('TOTAL', true)}${celulaStr(ticketsOriginais.length, true)}</row>`
-  ];
+    const rowsResumo = [
+      `<row r="1">${celulaStr('Status', true)}${celulaStr('Total', true)}</row>`,
+      ...resumoStatus.map((r, i) =>
+        `<row r="${i + 2}">${celulaStr(r.status)}${celulaStr(r.total)}</row>`
+      ),
+      `<row r="${resumoStatus.length + 3}">${celulaStr('TOTAL', true)}${celulaStr(ticketsOriginais.length, true)}</row>`
+    ];
 
-  // Aba 3: Resumo por responsável
-  const porResponsavel: Record<string, any> = {};
-  ticketsOriginais.forEach(t => {
-    const r = t.assignee || 'Não atribuído';
-    if (!porResponsavel[r]) porResponsavel[r] = { total: 0, resolvidos: 0, notas: [] };
-    porResponsavel[r].total++;
-    if (t.status === 'Resolvido') porResponsavel[r].resolvidos++;
-    if (t.avaliacao?.nota) porResponsavel[r].notas.push(t.avaliacao.nota);
+    // Aba 3: Resumo por responsável
+    const porResponsavel: Record<string, any> = {};
+    ticketsOriginais.forEach((t: any) => {
+      const r = t.assignee || 'Não atribuído';
+      if (!porResponsavel[r]) porResponsavel[r] = { total: 0, resolvidos: 0, notas: [] };
+      porResponsavel[r].total++;
+      if (t.status === 'Resolvido') porResponsavel[r].resolvidos++;
+      if (t.avaliacao?.nota) porResponsavel[r].notas.push(t.avaliacao.nota);
+    });
+
+    const rowsResp = [
+      `<row r="1">${celulaStr('Responsável',true)}${celulaStr('Total',true)}${celulaStr('Resolvidos',true)}${celulaStr('Média Satisfação',true)}</row>`,
+      ...Object.entries(porResponsavel).map(([nome, dados], i) => {
+        const media = dados.notas.length > 0
+          ? (dados.notas.reduce((a: number,b: number)=>a+b,0)/dados.notas.length).toFixed(1)
+          : 'N/A';
+        return `<row r="${i+2}">${celulaStr(nome)}${celulaStr(dados.total)}${celulaStr(dados.resolvidos)}${celulaStr(media)}</row>`;
+      })
+    ];
+
+    // Montar XLSX (formato ZIP com XMLs internos)
+    const xmlSheet1 = `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rowsChamados.join('')}</sheetData></worksheet>`;
+    const xmlSheet2 = `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rowsResumo.join('')}</sheetData></worksheet>`;
+    const xmlSheet3 = `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rowsResp.join('')}</sheetData></worksheet>`;
+
+    const xmlWorkbook = `<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Chamados" sheetId="1" r:id="rId1"/><sheet name="Resumo por Status" sheetId="2" r:id="rId2"/><sheet name="Por Responsável" sheetId="3" r:id="rId3"/></sheets></workbook>`;
+
+    const xmlRels = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/></Relationships>`;
+
+    const xmlContentTypes = `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet3.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`;
+
+    const xmlRelsTop = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+
+    // Usar JSZip via CDN para montar o arquivo
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    script.onload = () => {
+      const JSZip = (window as any).JSZip;
+      const zip = new JSZip();
+      zip.file('[Content_Types].xml', xmlContentTypes);
+      zip.file('_rels/.rels', xmlRelsTop);
+      zip.file('xl/workbook.xml', xmlWorkbook);
+      zip.file('xl/_rels/workbook.xml.rels', xmlRels);
+      zip.file('xl/worksheets/sheet1.xml', xmlSheet1);
+      zip.file('xl/worksheets/sheet2.xml', xmlSheet2);
+      zip.file('xl/worksheets/sheet3.xml', xmlSheet3);
+
+      zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+        .then((blob: Blob) => {
+          downloadBlob(blob, nomeArquivo + '.xlsx');
+          resolve();
+        })
+        .catch(reject);
+    };
+    script.onerror = () => {
+      showToast('Excel indisponível, gerando CSV...', 'info');
+      exportarCSV(linhas, nomeArquivo, titulo);
+      resolve();
+    };
+    if (!(window as any).JSZip) {
+      document.head.appendChild(script);
+    } else {
+      script.onload(new Event('load'));
+    }
   });
-
-  const rowsResp = [
-    `<row r="1">${celulaStr('Responsável',true)}${celulaStr('Total',true)}${celulaStr('Resolvidos',true)}${celulaStr('Média Satisfação',true)}</row>`,
-    ...Object.entries(porResponsavel).map(([nome, dados], i) => {
-      const media = dados.notas.length > 0
-        ? (dados.notas.reduce((a: number,b: number)=>a+b,0)/dados.notas.length).toFixed(1)
-        : 'N/A';
-      return `<row r="${i+2}">${celulaStr(nome)}${celulaStr(dados.total)}${celulaStr(dados.resolvidos)}${celulaStr(media)}</row>`;
-    })
-  ];
-
-  // Montar XLSX (formato ZIP com XMLs internos)
-  const xmlSheet1 = `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rowsChamados.join('')}</sheetData></worksheet>`;
-  const xmlSheet2 = `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rowsResumo.join('')}</sheetData></worksheet>`;
-  const xmlSheet3 = `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rowsResp.join('')}</sheetData></worksheet>`;
-
-  const xmlWorkbook = `<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Chamados" sheetId="1" r:id="rId1"/><sheet name="Resumo por Status" sheetId="2" r:id="rId2"/><sheet name="Por Responsável" sheetId="3" r:id="rId3"/></sheets></workbook>`;
-
-  const xmlRels = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/></Relationships>`;
-
-  const xmlContentTypes = `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet3.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`;
-
-  const xmlRelsTop = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
-
-  // Usar JSZip via CDN para montar o arquivo
-  // Carregar JSZip dinamicamente
-  const script = document.createElement('script');
-  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-  script.onload = () => {
-    const JSZip = (window as any).JSZip;
-    const zip = new JSZip();
-    zip.file('[Content_Types].xml', xmlContentTypes);
-    zip.file('_rels/.rels', xmlRelsTop);
-    zip.file('xl/workbook.xml', xmlWorkbook);
-    zip.file('xl/_rels/workbook.xml.rels', xmlRels);
-    zip.file('xl/worksheets/sheet1.xml', xmlSheet1);
-    zip.file('xl/worksheets/sheet2.xml', xmlSheet2);
-    zip.file('xl/worksheets/sheet3.xml', xmlSheet3);
-
-    zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-      .then((blob: Blob) => downloadBlob(blob, nomeArquivo + '.xlsx'));
-  };
-  script.onerror = () => {
-    // Fallback para CSV se JSZip não carregar
-    showToast('Excel indisponível, gerando CSV...', 'info');
-    exportarCSV(linhas, nomeArquivo, titulo);
-  };
-  if (!(window as any).JSZip) {
-    document.head.appendChild(script);
-  } else {
-    script.onload(new Event('load'));
-  }
 }
 
 // ---- DOWNLOAD HELPER ----
@@ -1436,7 +1461,43 @@ function downloadBlob(blob: Blob, nomeArquivo: string) {
   }, 100);
 }
 
-async function gerarRelatorio(config: any, tickets: any[], showToast: any) {
+// Helper para parsear datas relativas do mock (ex: "há 2 horas", "Ontem às 14:30")
+function parseDataRelativa(dateStr: string): Date {
+  const agora = new Date();
+  if (!dateStr || dateStr === "Agora mesmo") return agora;
+  
+  const lower = dateStr.toLowerCase();
+  
+  if (lower.includes("há")) {
+    const match = lower.match(/há (\d+) (hora|horas|minuto|minutos|dia|dias)/);
+    if (match) {
+      const num = parseInt(match[1]);
+      const unit = match[2];
+      const d = new Date(agora);
+      if (unit.startsWith("hora")) d.setHours(d.getHours() - num);
+      if (unit.startsWith("minuto")) d.setMinutes(d.getMinutes() - num);
+      if (unit.startsWith("dia")) d.setDate(d.getDate() - num);
+      return d;
+    }
+  }
+  
+  if (lower.includes("ontem")) {
+    const d = new Date(agora);
+    d.setDate(d.getDate() - 1);
+    const timeMatch = lower.match(/às (\d{2}):(\d{2})/);
+    if (timeMatch) {
+      d.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2]), 0, 0);
+    }
+    return d;
+  }
+
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? agora : parsed;
+}
+
+async function gerarRelatorio(config: any, tickets: any[], showToast?: (msg: string, type?: any) => void) {
+  const safeToast = showToast || ((msg: string) => console.log(msg));
+  
   // 1. Filtrar tickets
   const agora = new Date();
   const diasMs = parseInt(config.periodo) * 86400000;
@@ -1445,18 +1506,18 @@ async function gerarRelatorio(config: any, tickets: any[], showToast: any) {
 
   if (config.periodo !== '0') {
     ticketsFiltrados = ticketsFiltrados.filter(t => {
-      const criadoEm = t.created === "Agora mesmo" ? agora : new Date(t.created);
+      const criadoEm = parseDataRelativa(t.created);
       return (agora.getTime() - criadoEm.getTime()) <= diasMs;
     });
   }
 
-  if (config.statusFiltro.length > 0) {
+  if (config.statusFiltro && config.statusFiltro.length > 0) {
     ticketsFiltrados = ticketsFiltrados.filter(t =>
       config.statusFiltro.includes(t.status)
     );
   }
 
-  if (config.prioridadeFiltro.length > 0) {
+  if (config.prioridadeFiltro && config.prioridadeFiltro.length > 0) {
     ticketsFiltrados = ticketsFiltrados.filter(t =>
       config.prioridadeFiltro.includes(t.priority)
     );
@@ -1466,7 +1527,7 @@ async function gerarRelatorio(config: any, tickets: any[], showToast: any) {
   const SLA_HORAS: Record<string, number> = { 'Crítico': 4, 'Alto': 8, 'Médio': 24, 'Baixo': 72 };
 
   const linhas = ticketsFiltrados.map(t => {
-    const criadoEm = t.created === "Agora mesmo" ? agora : new Date(t.created);
+    const criadoEm = parseDataRelativa(t.created);
     const resolvidoEm = t.atualizadoEm && ['Resolvido','Fechado'].includes(t.status)
       ? new Date(t.atualizadoEm) : null;
 
@@ -1511,7 +1572,7 @@ async function gerarRelatorio(config: any, tickets: any[], showToast: any) {
   });
 
   if (linhas.length === 0) {
-    showToast('Nenhum chamado encontrado com os filtros selecionados', 'info');
+    safeToast('Nenhum chamado encontrado com os filtros selecionados', 'info');
     return;
   }
 
@@ -1520,7 +1581,7 @@ async function gerarRelatorio(config: any, tickets: any[], showToast: any) {
   if (config.formato === 'csv') {
     exportarCSV(linhas, nomeArquivo, config.titulo);
   } else {
-    exportarXLSX(linhas, nomeArquivo, config.titulo, ticketsFiltrados, showToast);
+    await exportarXLSX(linhas, nomeArquivo, config.titulo, ticketsFiltrados, safeToast);
   }
 }
 
@@ -1575,7 +1636,7 @@ function ModalGerarRelatorio({ onFechar, tickets, showToast }: { onFechar: () =>
       const diasMs = parseInt(config.periodo) * 86400000;
       const agora = new Date();
       r = r.filter(t => {
-        const criadoEm = t.created === "Agora mesmo" ? agora : new Date(t.created);
+        const criadoEm = parseDataRelativa(t.created);
         return (agora.getTime() - criadoEm.getTime()) <= diasMs;
       });
     }
@@ -1795,10 +1856,13 @@ const Reports = () => {
     >
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-text-primary">Relatórios</h2>
-        <div className="flex gap-2">
-          <button onClick={() => setModalRelatorioAberto(true)} className="flex items-center gap-2 px-4 py-2 bg-accent-primary text-white rounded-lg hover:bg-accent-hover transition-colors font-medium">
-            <BarChart2 className="w-4 h-4" />
-            Gerar Relatório
+        <div className="flex gap-2 items-center">
+          <button 
+            onClick={() => setModalRelatorioAberto(true)} 
+            title="Configurar e Gerar Relatório"
+            className="p-2.5 bg-accent-primary text-white rounded-lg hover:bg-accent-hover transition-all duration-200 shadow-sm hover:shadow-md active:scale-95 flex items-center justify-center group"
+          >
+            <FileSpreadsheet className="w-6 h-6 group-hover:scale-110 transition-transform" />
           </button>
           <Select className="w-48">
             <option>Últimos 30 Dias</option>
@@ -1860,7 +1924,7 @@ const Reports = () => {
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: cat.color }}
                 ></div>
-                {cat.name} ({cat.value}%)
+                {cat.name} ({cat.value})
               </div>
             ))}
           </div>
@@ -2624,7 +2688,7 @@ const AllTicketsView = ({
 }) => {
   const { tickets, filtros, setFiltros, deletarChamados, deletarChamado } = useTickets();
   const { usuarioLogado } = useAuth();
-  const { pedirConfirmacao } = useAppContext();
+  const { pedirConfirmacao, showToast } = useAppContext();
   const [selectedTickets, setSelectedTickets] = useState<string[]>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
 
@@ -2658,7 +2722,23 @@ const AllTicketsView = ({
             <Button variant="secondary">
               <Filter className="w-4 h-4 mr-2" /> Filtrar
             </Button>
-            <Button variant="secondary">Exportar CSV</Button>
+            <button 
+              onClick={() => {
+                const config = {
+                  titulo: 'Exportação de Chamados — Lista Geral',
+                  periodo: '0',
+                  statusFiltro: filtros.status === 'todos' ? [] : [filtros.status],
+                  prioridadeFiltro: filtros.prioridade === 'todas' ? [] : [filtros.prioridade],
+                  formato: 'xlsx',
+                  colunas: { id: true, titulo: true, solicitante: true, responsavel: true, categoria: true, prioridade: true, status: true, criadoEm: true, resolvidoEm: true, tempoResolucao: true, sla: true, avaliacao: true, notaSatisfacao: true }
+                };
+                gerarRelatorio(config, filteredTickets, showToast);
+              }}
+              title="Exportar para Excel"
+              className="p-2 bg-accent-primary/10 text-accent-primary rounded-lg hover:bg-accent-primary hover:text-white transition-all duration-200 border border-accent-primary/20 flex items-center justify-center group"
+            >
+              <FileSpreadsheet className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            </button>
           </div>
         )}
       </div>
@@ -2878,12 +2958,16 @@ const AllTicketsView = ({
   );
 };
 
-const NewTicketView = ({ onSubmit, onOpenArticle }: { onSubmit: () => void, onOpenArticle: (artigo: Artigo) => void }) => {
+const NewTicketView = ({ onSubmit, onCancel, onOpenArticle }: { onSubmit: () => void, onCancel: () => void, onOpenArticle: (artigo: Artigo) => void }) => {
   const [loading, setLoading] = useState(false);
   const { criarChamado } = useTickets();
   const { artigos } = useKB();
+  const { showToast } = useAppContext();
   const [titulo, setTitulo] = useState('');
   const [sugestao, setSugestao] = useState<Artigo | null>(null);
+  const [anexos, setAnexos] = useState<File[]>([]);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -2903,6 +2987,52 @@ const NewTicketView = ({ onSubmit, onOpenArticle }: { onSubmit: () => void, onOp
     return () => clearTimeout(timer);
   }, [titulo, artigos]);
 
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const validateAndAddFiles = (files: FileList | null) => {
+    if (!files) return;
+    const newFiles = Array.from(files);
+    const validFiles: File[] = [];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    newFiles.forEach(file => {
+      if (file.size > maxSize) {
+        showToast(`O arquivo ${file.name} excede o limite de 5MB`, 'error');
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    setAnexos(prev => [...prev, ...validFiles]);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      validateAndAddFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      validateAndAddFiles(e.target.files);
+    }
+  };
+
+  const removerAnexo = (index: number) => {
+    setAnexos(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -2912,8 +3042,20 @@ const NewTicketView = ({ onSubmit, onOpenArticle }: { onSubmit: () => void, onOp
     const priority = (form.elements[2] as HTMLSelectElement).value as Priority;
     const description = (form.elements[3] as HTMLTextAreaElement).value;
 
+    const anexosMetadados = anexos.map(file => ({
+      name: file.name,
+      size: file.size,
+      type: file.type
+    }));
+
     setTimeout(() => {
-      criarChamado({ title: titulo, category, priority, description });
+      criarChamado({ 
+        title: titulo, 
+        category, 
+        priority, 
+        description,
+        attachments: anexosMetadados
+      });
       setLoading(false);
       onSubmit();
     }, 1000);
@@ -2994,8 +3136,26 @@ const NewTicketView = ({ onSubmit, onOpenArticle }: { onSubmit: () => void, onOp
               <label className="block text-sm font-medium text-text-secondary mb-1">
                 Anexos
               </label>
-              <div className="border-2 border-dashed border-border-subtle rounded-lg p-8 text-center hover:bg-white/5 transition-colors cursor-pointer">
-                <Paperclip className="w-8 h-8 text-text-muted mx-auto mb-2" />
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+              />
+              <div 
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer ${
+                  dragActive 
+                    ? "border-accent-primary bg-accent-primary/5" 
+                    : "border-border-subtle hover:bg-white/5"
+                }`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Paperclip className={`w-8 h-8 mx-auto mb-2 transition-colors ${dragActive ? "text-accent-primary" : "text-text-muted"}`} />
                 <p className="text-sm text-text-secondary">
                   Arraste e solte arquivos aqui, ou{" "}
                   <span className="text-accent-primary">
@@ -3003,14 +3163,40 @@ const NewTicketView = ({ onSubmit, onOpenArticle }: { onSubmit: () => void, onOp
                   </span>
                 </p>
                 <p className="text-xs text-text-muted mt-1">
-                  Tamanho máximo do arquivo: 10MB
+                  Tamanho máximo por arquivo: 5MB
                 </p>
               </div>
+
+              {anexos.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {anexos.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-bg-surface border border-border-subtle rounded-lg group">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <Paperclip className="w-4 h-4 text-text-muted shrink-0" />
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm text-text-primary truncate">{file.name}</span>
+                          <span className="text-[10px] text-text-muted">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removerAnexo(index);
+                        }}
+                        className="p-1 text-text-muted hover:text-danger hover:bg-danger/10 rounded transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border-subtle">
-            <Button type="button" variant="ghost">
+            <Button type="button" variant="ghost" onClick={onCancel}>
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
@@ -3940,6 +4126,7 @@ export const TicketProvider = ({ children }: { children: React.ReactNode }) => {
       created: "Agora mesmo",
       sla: "24h restantes",
       description: dados.description || "",
+      attachments: dados.attachments || [],
     };
     setTickets([newTicket, ...tickets]);
 
@@ -4982,6 +5169,7 @@ function MainApp() {
                   showToast("Chamado criado com sucesso");
                   setCurrentView("my-tickets");
                 }}
+                onCancel={() => setCurrentView("dashboard")}
                 onOpenArticle={(artigo) => {
                   setCurrentView("kb");
                   // We need a way to open a specific article in KnowledgeBaseView
@@ -5188,6 +5376,30 @@ function MainApp() {
                     {ticketAtivo.description}
                   </p>
                 </div>
+
+                {ticketAtivo.attachments && ticketAtivo.attachments.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-border-subtle">
+                    <h3 className="text-sm font-medium text-text-primary mb-3 flex items-center gap-2">
+                      <Paperclip className="w-4 h-4 text-accent-primary" /> Anexos ({ticketAtivo.attachments.length})
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {ticketAtivo.attachments.map((anexo: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between p-3 bg-bg-surface border border-border-subtle rounded-xl hover:border-accent-primary/50 transition-colors group cursor-pointer">
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="w-8 h-8 rounded-lg bg-accent-primary/10 flex items-center justify-center text-accent-primary">
+                              <FileSpreadsheet className="w-4 h-4" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-sm text-text-primary truncate font-medium">{anexo.name}</span>
+                              <span className="text-[10px] text-text-muted">{(anexo.size / 1024 / 1024).toFixed(2)} MB</span>
+                            </div>
+                          </div>
+                          <ArrowDownRight className="w-4 h-4 text-text-muted group-hover:text-accent-primary transition-colors" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Related Articles */}
                 {usuarioLogado.perfil === 'admin' && (
