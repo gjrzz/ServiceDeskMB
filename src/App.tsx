@@ -172,101 +172,7 @@ const useTheme = () => {
 };
 
 // --- THREE.JS BACKGROUND ---
-// Executar fora de qualquer componente React — direto no escopo global do script
-(function initBackground() {
-  const canvas = document.getElementById('bg-canvas') as HTMLCanvasElement;
-  if (!canvas) {
-    // Canvas ainda não existe, tentar de novo em 100ms
-    setTimeout(initBackground, 100);
-    return;
-  }
-
-  const AMOUNTX = 50;
-  const AMOUNTY = 50;
-  const SEPARATION = 120;
-
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  // Initial color based on localStorage or default to dark
-  const initialTheme = localStorage.getItem('mb_tema') || 'escuro';
-  renderer.setClearColor(initialTheme === 'claro' ? 0xf5f3ff : 0x0d0b14, 1);
-
-  const scene = new THREE.Scene();
-
-  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
-  camera.position.set(0, 300, 1000);
-
-  // Criar geometria
-  const totalParticles = AMOUNTX * AMOUNTY;
-  const positions = new Float32Array(totalParticles * 3);
-
-  let idx = 0;
-  for (let ix = 0; ix < AMOUNTX; ix++) {
-    for (let iy = 0; iy < AMOUNTY; iy++) {
-      positions[idx * 3 + 0] = ix * SEPARATION - (AMOUNTX * SEPARATION) / 2;
-      positions[idx * 3 + 1] = 0;
-      positions[idx * 3 + 2] = iy * SEPARATION - (AMOUNTY * SEPARATION) / 2;
-      idx++;
-    }
-  }
-
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-  const material = new THREE.PointsMaterial({
-    color: initialTheme === 'claro' ? 0x7C3AED : 0xb48cff,
-    size: 6,
-    transparent: true,
-    opacity: initialTheme === 'claro' ? 0.3 : 0.6,
-    sizeAttenuation: true
-  });
-
-  const points = new THREE.Points(geometry, material);
-  scene.add(points);
-
-  // Variável de contagem FORA do loop de animação
-  let count = 0;
-  let rafId: number | null = null;
-
-  function animate() {
-    rafId = requestAnimationFrame(animate);
-
-    // Atualizar posições Y
-    const pos = geometry.attributes.position.array as Float32Array;
-    let i = 0;
-    for (let ix = 0; ix < AMOUNTX; ix++) {
-      for (let iy = 0; iy < AMOUNTY; iy++) {
-        pos[i * 3 + 1] =
-          Math.sin((ix + count) * 0.3) * 100 +
-          Math.sin((iy + count) * 0.5) * 100;
-        i++;
-      }
-    }
-
-    // CRÍTICO: marcar como atualizado a cada frame
-    geometry.attributes.position.needsUpdate = true;
-
-    renderer.render(scene, camera);
-    count += 0.08;
-  }
-
-  // Iniciar animação
-  animate();
-
-  // Resize
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-
-  // Expor para troca de tema
-  // @ts-ignore
-  window.__bgMaterial = material;
-  // @ts-ignore
-  window.__bgRenderer = renderer;
-})();
+// Código movido para dentro do componente principal para evitar execução imediata
 
 // --- TYPES & MOCK DATA ---
 type Priority = "Baixo" | "Médio" | "Alto" | "Crítico";
@@ -298,6 +204,7 @@ interface Attachment {
   name: string;
   size: number;
   type: string;
+  url?: string; // Para armazenar URL do arquivo (simulado)
 }
 
 interface TicketData {
@@ -331,6 +238,20 @@ const MOCK_TICKETS: TicketData[] = [
     sla: "6h restantes",
     description:
       "Troquei minha senha hoje de manhã e agora o cliente VPN diz que a autenticação falhou.",
+    attachments: [
+      {
+        name: "erro_vpn_screenshot.png",
+        size: 1024 * 1024 * 2.5, // 2.5MB
+        type: "image/png",
+        url: "https://via.placeholder.com/800x600/7C3AED/FFFFFF?text=Erro+VPN"
+      },
+      {
+        name: "log_conexao.txt",
+        size: 1024 * 15, // 15KB
+        type: "text/plain",
+        url: "https://exemplo.com/files/log_conexao.txt"
+      }
+    ]
   },
   {
     id: "TKT-0002",
@@ -357,6 +278,20 @@ const MOCK_TICKETS: TicketData[] = [
     sla: "Cumprido",
     description:
       "Toda vez que abro a planilha Financeira do Q3, o Excel trava e fecha.",
+    attachments: [
+      {
+        name: "planilha_problematica.xlsx",
+        size: 1024 * 1024 * 8.2, // 8.2MB
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        url: "https://exemplo.com/files/planilha_problematica.xlsx"
+      },
+      {
+        name: "erro_excel.jpg",
+        size: 1024 * 1024 * 1.8, // 1.8MB
+        type: "image/jpeg",
+        url: "https://via.placeholder.com/1200x800/FF6B6B/FFFFFF?text=Erro+Excel"
+      }
+    ]
   },
   {
     id: "TKT-0004",
@@ -639,7 +574,177 @@ const getStatusColor = (status: Status) => {
   }
 };
 
+// Utilitários para anexos
+const isImageFile = (type: string) => {
+  return type.startsWith('image/');
+};
+
+const getFileIcon = (type: string, name: string) => {
+  if (isImageFile(type)) {
+    return '🖼️';
+  }
+  
+  const extension = name.split('.').pop()?.toLowerCase();
+  
+  switch (extension) {
+    case 'pdf':
+      return '📄';
+    case 'doc':
+    case 'docx':
+      return '📝';
+    case 'xls':
+    case 'xlsx':
+      return '📊';
+    case 'ppt':
+    case 'pptx':
+      return '📋';
+    case 'zip':
+    case 'rar':
+    case '7z':
+      return '🗜️';
+    case 'txt':
+      return '📃';
+    case 'mp4':
+    case 'avi':
+    case 'mov':
+      return '🎥';
+    case 'mp3':
+    case 'wav':
+    case 'flac':
+      return '🎵';
+    default:
+      return '📎';
+  }
+};
+
+const generateFileUrl = (file: File | Attachment) => {
+  // Em um sistema real, isso seria uma URL do servidor
+  // Para demonstração, vamos criar URLs simuladas
+  if (file instanceof File) {
+    return URL.createObjectURL(file);
+  }
+  
+  // Para anexos já salvos, simular uma URL
+  return `https://exemplo.com/files/${file.name}`;
+};
+
+const downloadFile = (attachment: Attachment) => {
+  // Em um sistema real, isso faria uma requisição para o servidor
+  // Para demonstração, vamos simular o download
+  const link = document.createElement('a');
+  link.href = attachment.url || generateFileUrl(attachment);
+  link.download = attachment.name;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 // --- COMPONENTS ---
+
+// Componente para visualização de anexos
+const AttachmentViewer = ({ attachment, onDownload }: { attachment: Attachment, onDownload: () => void }) => {
+  const [showPreview, setShowPreview] = useState(false);
+  const isImage = isImageFile(attachment.type);
+  const fileIcon = getFileIcon(attachment.type, attachment.name);
+
+  return (
+    <>
+      <div 
+        className="flex items-center justify-between p-3 bg-bg-surface border border-border-subtle rounded-xl hover:border-accent-primary/50 transition-colors group cursor-pointer"
+        onClick={() => isImage ? setShowPreview(true) : onDownload()}
+      >
+        <div className="flex items-center gap-3 overflow-hidden">
+          <div className="w-8 h-8 rounded-lg bg-accent-primary/10 flex items-center justify-center text-accent-primary">
+            <span className="text-sm">{fileIcon}</span>
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm text-text-primary truncate font-medium">{attachment.name}</span>
+            <span className="text-[10px] text-text-muted">{(attachment.size / 1024 / 1024).toFixed(2)} MB</span>
+            {isImage && (
+              <span className="text-[10px] text-accent-primary">Clique para visualizar</span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {isImage && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowPreview(true);
+              }}
+              className="p-1 text-text-muted hover:text-accent-primary transition-colors"
+              title="Visualizar imagem"
+            >
+              👁️
+            </button>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDownload();
+            }}
+            className="p-1 text-text-muted hover:text-accent-primary transition-colors"
+            title="Baixar arquivo"
+          >
+            <ArrowDownRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Modal de preview para imagens */}
+      <AnimatePresence>
+        {showPreview && isImage && (
+          <div 
+            className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setShowPreview(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="relative max-w-4xl max-h-[90vh] bg-bg-surface rounded-2xl overflow-hidden shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-border-subtle">
+                <div>
+                  <h3 className="text-lg font-semibold text-text-primary">{attachment.name}</h3>
+                  <p className="text-sm text-text-muted">{(attachment.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={onDownload}
+                    className="flex items-center gap-2"
+                  >
+                    <ArrowDownRight className="w-4 h-4" />
+                    Baixar
+                  </Button>
+                  <button
+                    onClick={() => setShowPreview(false)}
+                    className="p-2 text-text-muted hover:text-text-primary hover:bg-white/5 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              <div className="p-4 flex items-center justify-center bg-bg-primary/50">
+                <img
+                  src={attachment.url || generateFileUrl(attachment)}
+                  alt={attachment.name}
+                  className="max-w-full max-h-[70vh] object-contain rounded-lg"
+                  onError={(e) => {
+                    // Fallback se a imagem não carregar
+                    (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMzMzIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNjY2IiBmb250LXNpemU9IjE0Ij5JbWFnZW0gbsOjbyBlbmNvbnRyYWRhPC90ZXh0Pgo8L3N2Zz4=';
+                  }}
+                />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
 
 const ICONES_TIMELINE: Record<string, React.ReactNode> = {
   comment: <MessageSquare className="w-4 h-4 text-accent-primary" />,
@@ -722,9 +827,11 @@ function Timeline({ historico, ticketAtivo }: { historico: any[], ticketAtivo: a
           <div className="mt-3 space-y-2">
             <p className="text-[10px] font-medium text-text-muted uppercase tracking-wider">Anexos:</p>
             {ticketAtivo.attachments.map((anexo: any, i: number) => (
-              <div key={i} className="flex items-center gap-2 text-xs text-accent-primary hover:underline cursor-pointer bg-accent-primary/5 p-2 rounded border border-accent-primary/10 w-fit">
-                <Paperclip className="w-3 h-4" />
-                <span>{anexo.name} ({(anexo.size / 1024 / 1024).toFixed(2)} MB)</span>
+              <div key={i}>
+                <AttachmentViewer
+                  attachment={anexo}
+                  onDownload={() => downloadFile(anexo)}
+                />
               </div>
             ))}
           </div>
@@ -2673,18 +2780,38 @@ const DashboardView = ({
 const AllTicketsView = ({
   onOpenTicket,
   isMyTickets = false,
+  selectedTickets,
+  setSelectedTickets,
 }: {
   onOpenTicket: (t: TicketData) => void;
   isMyTickets?: boolean;
+  selectedTickets: string[];
+  setSelectedTickets: React.Dispatch<React.SetStateAction<string[]>>;
 }) => {
-  const { tickets, filtros, setFiltros, deletarChamados, deletarChamado } = useTickets();
-  const { usuarioLogado } = useAuth();
+  const { tickets, filtros, setFiltros, deletarChamados, deletarChamado, atualizarStatus, atualizarPrioridade, atribuirResponsavel } = useTickets();
+  const { usuarioLogado, usuarios } = useAuth();
   const { pedirConfirmacao, showToast } = useAppContext();
-  const [selectedTickets, setSelectedTickets] = useState<string[]>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
 
+  // Forçar re-renderização quando tickets mudarem
+  const [, forceUpdate] = useState({});
+  const [lastUpdate, setLastUpdate] = useState(Date.now());
+  
+  useEffect(() => {
+    forceUpdate({});
+    setLastUpdate(Date.now());
+  }, [tickets]);
+
   const filteredTickets = tickets.filter((t) => {
-    if (isMyTickets && t.solicitanteId !== usuarioLogado?.id) return false;
+    if (isMyTickets) {
+      // Para admins: mostrar chamados atribuídos a eles
+      // Para usuários: mostrar chamados que eles abriram
+      if (usuarioLogado?.perfil === 'admin') {
+        return t.assignee === usuarioLogado.nome;
+      } else {
+        return t.solicitanteId === usuarioLogado?.id;
+      }
+    }
 
     const matchBusca =
       (t.title?.toLowerCase() || "").includes((filtros.busca || "").toLowerCase()) ||
@@ -2706,7 +2833,10 @@ const AllTicketsView = ({
     >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-2xl font-bold text-text-primary">
-          {isMyTickets ? "Meus Chamados" : "Todos os Chamados"}
+          {isMyTickets 
+            ? (usuarioLogado?.perfil === 'admin' ? "Chamados Atribuídos a Mim" : "Meus Chamados") 
+            : "Todos os Chamados"
+          }
         </h2>
         {!isMyTickets && (
           <div className="flex gap-2">
@@ -2743,7 +2873,7 @@ const AllTicketsView = ({
                 (t) => t.status !== "Resolvido" && t.status !== "Fechado",
               ).length
             }{" "}
-            chamados abertos
+            {usuarioLogado?.perfil === 'admin' ? 'chamados atribuídos' : 'chamados abertos'}
           </p>
         </Card>
       )}
@@ -2789,47 +2919,8 @@ const AllTicketsView = ({
       </Card>
 
       <Card className="p-0 overflow-hidden relative">
-        {selectedTickets.length > 0 && (
-          <motion.div 
-            initial={{ y: 50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 bg-bg-elevated border border-accent-primary/30 shadow-[0_10px_40px_rgba(0,0,0,0.5)] rounded-full px-6 py-3 flex items-center gap-6 backdrop-blur-xl"
-          >
-            <span className="text-sm font-medium text-text-primary">
-              <span className="text-accent-primary font-bold">{selectedTickets.length}</span> chamados selecionados
-            </span>
-            <div className="h-4 w-px bg-border-subtle"></div>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => {
-                  pedirConfirmacao({
-                    titulo: 'Excluir Chamados Selecionados',
-                    mensagem: `Tem certeza que deseja excluir os ${selectedTickets.length} chamados selecionados?`,
-                    mensagemExtra: 'Esta ação não pode ser desfeita.',
-                    textoBotao: 'Excluir Chamados',
-                    tipo: 'perigo',
-                    onConfirmar: () => {
-                      deletarChamados(selectedTickets);
-                      setSelectedTickets([]);
-                    }
-                  });
-                }}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-danger hover:bg-danger/10 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" /> Excluir Todos
-              </button>
-              <button 
-                onClick={() => setSelectedTickets([])}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-text-secondary hover:text-text-primary transition-colors"
-              >
-                Cancelar
-              </button>
-            </div>
-          </motion.div>
-        )}
-
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table key={lastUpdate} className="w-full text-left text-sm">
             <thead className="bg-black/20 text-text-secondary">
               <tr>
                 {usuarioLogado?.perfil === 'admin' && !isMyTickets && (
@@ -3036,7 +3127,8 @@ const NewTicketView = ({ onSubmit, onCancel, onOpenArticle }: { onSubmit: () => 
     const anexosMetadados = anexos.map(file => ({
       name: file.name,
       size: file.size,
-      type: file.type
+      type: file.type,
+      url: generateFileUrl(file)
     }));
 
     setTimeout(() => {
@@ -3160,27 +3252,55 @@ const NewTicketView = ({ onSubmit, onCancel, onOpenArticle }: { onSubmit: () => 
 
               {anexos.length > 0 && (
                 <div className="mt-4 space-y-2">
-                  {anexos.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-bg-surface border border-border-subtle rounded-lg group">
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <Paperclip className="w-4 h-4 text-text-muted shrink-0" />
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-sm text-text-primary truncate">{file.name}</span>
-                          <span className="text-[10px] text-text-muted">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                  {anexos.map((file, index) => {
+                    const isImage = isImageFile(file.type);
+                    const fileIcon = getFileIcon(file.type, file.name);
+                    
+                    return (
+                      <div key={index} className="flex items-center justify-between p-3 bg-bg-surface border border-border-subtle rounded-lg group">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          {isImage ? (
+                            <div className="w-12 h-12 rounded-lg overflow-hidden bg-bg-primary border border-border-subtle">
+                              <img
+                                src={URL.createObjectURL(file)}
+                                alt={file.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  // Fallback para ícone se a imagem não carregar
+                                  const container = e.currentTarget.parentElement;
+                                  if (container) {
+                                    container.innerHTML = `<div class="w-12 h-12 rounded-lg bg-accent-primary/10 flex items-center justify-center text-accent-primary"><span class="text-lg">${fileIcon}</span></div>`;
+                                  }
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-accent-primary/10 flex items-center justify-center text-accent-primary">
+                              <span className="text-lg">{fileIcon}</span>
+                            </div>
+                          )}
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm text-text-primary truncate font-medium">{file.name}</span>
+                            <span className="text-[10px] text-text-muted">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                            {isImage && (
+                              <span className="text-[10px] text-accent-primary">Imagem • Preview disponível</span>
+                            )}
+                          </div>
                         </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removerAnexo(index);
+                          }}
+                          className="p-1 text-text-muted hover:text-danger hover:bg-danger/10 rounded transition-colors"
+                          title="Remover arquivo"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removerAnexo(index);
-                        }}
-                        className="p-1 text-text-muted hover:text-danger hover:bg-danger/10 rounded transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -4140,8 +4260,8 @@ export const TicketProvider = ({ children }: { children: React.ReactNode }) => {
     if (!ticket) return;
     const statusAnterior = ticket.status;
 
-    setTickets(
-      tickets.map((t) => (t.id === id ? { ...t, status: novoStatus } : t)),
+    setTickets(prevTickets =>
+      prevTickets.map((t) => (t.id === id ? { ...t, status: novoStatus } : t))
     );
     adicionarAtividade(id, `Status alterado para ${novoStatus}`);
 
@@ -4178,10 +4298,10 @@ export const TicketProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const atualizarPrioridade = (id: string, novaPrioridade: Priority) => {
-    setTickets(
-      tickets.map((t) =>
+    setTickets(prevTickets =>
+      prevTickets.map((t) =>
         t.id === id ? { ...t, priority: novaPrioridade } : t,
-      ),
+      )
     );
     adicionarAtividade(id, `Prioridade alterada para ${novaPrioridade}`);
   };
@@ -4190,8 +4310,8 @@ export const TicketProvider = ({ children }: { children: React.ReactNode }) => {
     const ticket = tickets.find(t => t.id === id);
     if (!ticket) return;
 
-    setTickets(
-      tickets.map((t) => (t.id === id ? { ...t, assignee: responsavel } : t)),
+    setTickets(prevTickets =>
+      prevTickets.map((t) => (t.id === id ? { ...t, assignee: responsavel } : t))
     );
     adicionarAtividade(id, `Atribuído a ${responsavel}`);
 
@@ -4737,6 +4857,7 @@ function MainApp() {
     adicionarAtividade,
     atividades,
     deletarChamado,
+    deletarChamados,
   } = useTickets();
   const { artigos } = useKB();
   const { usuarios } = useAuth();
@@ -4747,6 +4868,24 @@ function MainApp() {
   const [showPassword, setShowPassword] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const { tema, alternarTema } = useTheme();
+  
+  // Estado para seleção múltipla de tickets
+  const [selectedTickets, setSelectedTickets] = useState<string[]>([]);
+
+  // Limpar seleção ao mudar de view
+  useEffect(() => {
+    setSelectedTickets([]);
+  }, [currentView]);
+
+  // Redirecionar usuários padrão para "my-tickets" se estiverem em views restritas
+  useEffect(() => {
+    if (usuarioLogado?.perfil === 'usuario') {
+      const viewsRestritasParaUsuario = ['dashboard', 'all-tickets', 'reports', 'users', 'settings'];
+      if (viewsRestritasParaUsuario.includes(currentView)) {
+        setCurrentView('my-tickets');
+      }
+    }
+  }, [usuarioLogado, currentView]);
 
   // Estado de intenção de navegação
   const [intencaoNavegacao, setIntencaoNavegacao] = useState<{ tipo: string, id: string } | null>(null);
@@ -4874,10 +5013,10 @@ function MainApp() {
       if (!result.success) {
         setLoginError(result.error || "Erro ao fazer login");
       } else {
+        // Verificar o perfil do usuário que acabou de fazer login
+        const usuario = usuarios.find(u => u.email === loginEmail);
         setCurrentView(
-          result.success && usuarioLogado?.perfil === "usuario"
-            ? "my-tickets"
-            : "dashboard",
+          usuario?.perfil === "usuario" ? "my-tickets" : "dashboard"
         );
       }
     }, 800);
@@ -5144,11 +5283,17 @@ function MainApp() {
               <AllTicketsView
                 onOpenTicket={setTicketAtivo}
                 isMyTickets={true}
+                selectedTickets={selectedTickets}
+                setSelectedTickets={setSelectedTickets}
               />
             )}
             {currentView === "all-tickets" &&
               (usuarioLogado.perfil === "admin" ? (
-                <AllTicketsView onOpenTicket={setTicketAtivo} />
+                <AllTicketsView 
+                  onOpenTicket={setTicketAtivo} 
+                  selectedTickets={selectedTickets}
+                  setSelectedTickets={setSelectedTickets}
+                />
               ) : (
                 <AcessoNegado />
               ))}
@@ -5187,6 +5332,171 @@ function MainApp() {
           </div>
         </div>
       </main>
+
+      {/* Barra de Ações em Lote - Fixa na tela */}
+      <AnimatePresence>
+        {selectedTickets.length > 0 && usuarioLogado?.perfil === 'admin' && (currentView === 'all-tickets' || currentView === 'my-tickets') && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-6 left-6 right-6 z-[2500] bg-bg-elevated border border-accent-primary/30 shadow-[0_20px_60px_rgba(0,0,0,0.7)] rounded-2xl px-8 py-5 backdrop-blur-xl max-w-7xl mx-auto"
+          >
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+              {/* Contador de selecionados */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-accent-primary/20 flex items-center justify-center">
+                  <span className="text-accent-primary font-bold text-sm">{selectedTickets.length}</span>
+                </div>
+                <div>
+                  <p className="text-base font-semibold text-text-primary">
+                    {selectedTickets.length} chamado{selectedTickets.length > 1 ? 's' : ''} selecionado{selectedTickets.length > 1 ? 's' : ''}
+                  </p>
+                  <p className="text-xs text-text-muted">Escolha uma ação para aplicar em lote</p>
+                </div>
+              </div>
+
+              {/* Ações */}
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Alterar Status */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-text-secondary">Status</label>
+                  <Select
+                    className="w-36 py-2 text-sm bg-bg-surface border-accent-primary/30"
+                    onChange={(e: any) => {
+                      if (e.target.value) {
+                        const statusValue = e.target.value;
+                        const ticketsToUpdate = [...selectedTickets];
+                        pedirConfirmacao({
+                          titulo: 'Alterar Status dos Chamados',
+                          mensagem: `Alterar o status de ${ticketsToUpdate.length} chamados para "${statusValue}"?`,
+                          textoBotao: 'Alterar Status',
+                          tipo: 'aviso',
+                          onConfirmar: () => {
+                            ticketsToUpdate.forEach(id => {
+                              atualizarStatus(id, statusValue as Status);
+                            });
+                            setSelectedTickets([]);
+                            showToast(`Status de ${ticketsToUpdate.length} chamados alterado para ${statusValue}`, 'success');
+                          }
+                        });
+                        e.target.value = ''; // Reset select
+                      }
+                    }}
+                  >
+                    <option value="">Alterar Status</option>
+                    <option value="Aberto">Aberto</option>
+                    <option value="Em Andamento">Em Andamento</option>
+                    <option value="Aguardando">Aguardando</option>
+                    <option value="Resolvido">Resolvido</option>
+                    <option value="Fechado">Fechado</option>
+                  </Select>
+                </div>
+
+                {/* Alterar Prioridade */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-text-secondary">Prioridade</label>
+                  <Select
+                    className="w-36 py-2 text-sm bg-bg-surface border-accent-primary/30"
+                    onChange={(e: any) => {
+                      if (e.target.value) {
+                        const prioridadeValue = e.target.value;
+                        const ticketsToUpdate = [...selectedTickets];
+                        pedirConfirmacao({
+                          titulo: 'Alterar Prioridade dos Chamados',
+                          mensagem: `Alterar a prioridade de ${ticketsToUpdate.length} chamados para "${prioridadeValue}"?`,
+                          textoBotao: 'Alterar Prioridade',
+                          tipo: 'aviso',
+                          onConfirmar: () => {
+                            ticketsToUpdate.forEach(id => atualizarPrioridade(id, prioridadeValue as Priority));
+                            setSelectedTickets([]);
+                            showToast(`Prioridade de ${ticketsToUpdate.length} chamados alterada para ${prioridadeValue}`, 'success');
+                          }
+                        });
+                        e.target.value = ''; // Reset select
+                      }
+                    }}
+                  >
+                    <option value="">Alterar Prioridade</option>
+                    <option value="Crítico">Crítico</option>
+                    <option value="Alto">Alto</option>
+                    <option value="Médio">Médio</option>
+                    <option value="Baixo">Baixo</option>
+                  </Select>
+                </div>
+
+                {/* Atribuir Responsável */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-text-secondary">Responsável</label>
+                  <Select
+                    className="w-44 py-2 text-sm bg-bg-surface border-accent-primary/30"
+                    onChange={(e: any) => {
+                      if (e.target.value) {
+                        const responsavelValue = e.target.value;
+                        const ticketsToUpdate = [...selectedTickets];
+                        pedirConfirmacao({
+                          titulo: 'Atribuir Responsável',
+                          mensagem: `Atribuir ${ticketsToUpdate.length} chamados para "${responsavelValue}"?`,
+                          textoBotao: 'Atribuir',
+                          tipo: 'aviso',
+                          onConfirmar: () => {
+                            ticketsToUpdate.forEach(id => atribuirResponsavel(id, responsavelValue));
+                            setSelectedTickets([]);
+                            showToast(`${ticketsToUpdate.length} chamados atribuídos para ${responsavelValue}`, 'success');
+                          }
+                        });
+                        e.target.value = ''; // Reset select
+                      }
+                    }}
+                  >
+                    <option value="">Atribuir Responsável</option>
+                    <option value="Não atribuído">Não atribuído</option>
+                    {usuarios
+                      .filter((u) => u.ativo)
+                      .map((u) => (
+                        <option key={u.id} value={u.nome}>
+                          {u.nome}
+                        </option>
+                      ))}
+                  </Select>
+                </div>
+
+                <div className="h-12 w-px bg-border-subtle mx-2"></div>
+
+                {/* Botões de Ação */}
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => {
+                      const ticketsToDelete = [...selectedTickets];
+                      pedirConfirmacao({
+                        titulo: 'Excluir Chamados Selecionados',
+                        mensagem: `Tem certeza que deseja excluir os ${ticketsToDelete.length} chamados selecionados?`,
+                        mensagemExtra: 'Esta ação não pode ser desfeita.',
+                        textoBotao: 'Excluir Chamados',
+                        tipo: 'perigo',
+                        onConfirmar: () => {
+                          deletarChamados(ticketsToDelete);
+                          setSelectedTickets([]);
+                        }
+                      });
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-danger hover:bg-danger/10 transition-colors border border-danger/30 bg-danger/5"
+                  >
+                    <Trash2 className="w-4 h-4" /> Excluir
+                  </button>
+
+                  <button 
+                    onClick={() => setSelectedTickets([])}
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors border border-border-subtle"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Ticket Detail Modal */}
       <AnimatePresence>
@@ -5373,17 +5683,11 @@ function MainApp() {
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {ticketAtivo.attachments.map((anexo: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between p-3 bg-bg-surface border border-border-subtle rounded-xl hover:border-accent-primary/50 transition-colors group cursor-pointer">
-                          <div className="flex items-center gap-3 overflow-hidden">
-                            <div className="w-8 h-8 rounded-lg bg-accent-primary/10 flex items-center justify-center text-accent-primary">
-                              <FileSpreadsheet className="w-4 h-4" />
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-sm text-text-primary truncate font-medium">{anexo.name}</span>
-                              <span className="text-[10px] text-text-muted">{(anexo.size / 1024 / 1024).toFixed(2)} MB</span>
-                            </div>
-                          </div>
-                          <ArrowDownRight className="w-4 h-4 text-text-muted group-hover:text-accent-primary transition-colors" />
+                        <div key={i}>
+                          <AttachmentViewer
+                            attachment={anexo}
+                            onDownload={() => downloadFile(anexo)}
+                          />
                         </div>
                       ))}
                     </div>
@@ -5500,6 +5804,120 @@ function MainApp() {
 }
 
 export default function App() {
+  // Inicializar Three.js background
+  useEffect(() => {
+    const initBackground = () => {
+      const canvas = document.getElementById('bg-canvas') as HTMLCanvasElement;
+      if (!canvas) {
+        // Canvas ainda não existe, tentar de novo em 100ms
+        setTimeout(initBackground, 100);
+        return;
+      }
+
+      const AMOUNTX = 50;
+      const AMOUNTY = 50;
+      const SEPARATION = 120;
+
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      // Initial color based on localStorage or default to dark
+      const initialTheme = localStorage.getItem('mb_tema') || 'escuro';
+      renderer.setClearColor(initialTheme === 'claro' ? 0xf5f3ff : 0x0d0b14, 1);
+
+      const scene = new THREE.Scene();
+
+      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
+      camera.position.set(0, 300, 1000);
+
+      // Criar geometria
+      const totalParticles = AMOUNTX * AMOUNTY;
+      const positions = new Float32Array(totalParticles * 3);
+
+      let idx = 0;
+      for (let ix = 0; ix < AMOUNTX; ix++) {
+        for (let iy = 0; iy < AMOUNTY; iy++) {
+          positions[idx * 3 + 0] = ix * SEPARATION - (AMOUNTX * SEPARATION) / 2;
+          positions[idx * 3 + 1] = 0;
+          positions[idx * 3 + 2] = iy * SEPARATION - (AMOUNTY * SEPARATION) / 2;
+          idx++;
+        }
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+      const material = new THREE.PointsMaterial({
+        color: initialTheme === 'claro' ? 0x7C3AED : 0xb48cff,
+        size: 6,
+        transparent: true,
+        opacity: initialTheme === 'claro' ? 0.3 : 0.6,
+        sizeAttenuation: true
+      });
+
+      const points = new THREE.Points(geometry, material);
+      scene.add(points);
+
+      // Variável de contagem FORA do loop de animação
+      let count = 0;
+      let rafId: number | null = null;
+
+      function animate() {
+        rafId = requestAnimationFrame(animate);
+
+        // Atualizar posições Y
+        const pos = geometry.attributes.position.array as Float32Array;
+        let i = 0;
+        for (let ix = 0; ix < AMOUNTX; ix++) {
+          for (let iy = 0; iy < AMOUNTY; iy++) {
+            pos[i * 3 + 1] =
+              Math.sin((ix + count) * 0.3) * 100 +
+              Math.sin((iy + count) * 0.5) * 100;
+            i++;
+          }
+        }
+
+        // CRÍTICO: marcar como atualizado a cada frame
+        geometry.attributes.position.needsUpdate = true;
+
+        renderer.render(scene, camera);
+        count += 0.08;
+      }
+
+      // Iniciar animação
+      animate();
+
+      // Resize
+      const handleResize = () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      };
+      
+      window.addEventListener('resize', handleResize);
+
+      // Expor para troca de tema
+      // @ts-ignore
+      window.__bgMaterial = material;
+      // @ts-ignore
+      window.__bgRenderer = renderer;
+
+      // Cleanup function
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+        }
+        renderer.dispose();
+        geometry.dispose();
+        material.dispose();
+      };
+    };
+
+    const cleanup = initBackground();
+    return cleanup;
+  }, []);
+
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "info" | "error";
