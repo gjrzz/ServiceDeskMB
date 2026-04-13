@@ -2803,7 +2803,15 @@ const AllTicketsView = ({
   }, [tickets]);
 
   const filteredTickets = tickets.filter((t) => {
-    if (isMyTickets && t.solicitanteId !== usuarioLogado?.id) return false;
+    if (isMyTickets) {
+      // Para admins: mostrar chamados atribuídos a eles
+      // Para usuários: mostrar chamados que eles abriram
+      if (usuarioLogado?.perfil === 'admin') {
+        return t.assignee === usuarioLogado.nome;
+      } else {
+        return t.solicitanteId === usuarioLogado?.id;
+      }
+    }
 
     const matchBusca =
       (t.title?.toLowerCase() || "").includes((filtros.busca || "").toLowerCase()) ||
@@ -2825,7 +2833,10 @@ const AllTicketsView = ({
     >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-2xl font-bold text-text-primary">
-          {isMyTickets ? "Meus Chamados" : "Todos os Chamados"}
+          {isMyTickets 
+            ? (usuarioLogado?.perfil === 'admin' ? "Chamados Atribuídos a Mim" : "Meus Chamados") 
+            : "Todos os Chamados"
+          }
         </h2>
         {!isMyTickets && (
           <div className="flex gap-2">
@@ -2862,7 +2873,7 @@ const AllTicketsView = ({
                 (t) => t.status !== "Resolvido" && t.status !== "Fechado",
               ).length
             }{" "}
-            chamados abertos
+            {usuarioLogado?.perfil === 'admin' ? 'chamados atribuídos' : 'chamados abertos'}
           </p>
         </Card>
       )}
