@@ -57,6 +57,7 @@ import {
   AlertTriangle,
   Activity,
   FileSpreadsheet,
+  Star,
 } from "lucide-react";
 
 // --- APP CONTEXT ---
@@ -71,7 +72,7 @@ interface ConfirmDialogOptions {
 
 interface Notificacao {
   id: string;
-  tipo: 'chamado_criado' | 'chamado_atualizado' | 'chamado_resolvido' | 'comentario_adicionado' | 'status_alterado' | 'prioridade_alterada' | 'kb_criado' | 'kb_editado' | 'usuario_criado';
+  tipo: 'chamado_criado' | 'chamado_atualizado' | 'chamado_resolvido' | 'comentario_adicionado' | 'status_alterado' | 'prioridade_alterada' | 'kb_criado' | 'kb_editado' | 'usuario_criado' | 'solicitar_avaliacao';
   titulo: string;
   mensagem: string;
   linkTipo: 'chamado' | 'artigo' | 'usuario' | null;
@@ -207,6 +208,14 @@ interface Attachment {
   url?: string; // Para armazenar URL do arquivo (simulado)
 }
 
+interface Avaliacao {
+  nota: number; // 1 a 5 estrelas
+  resolvido: boolean; // Se o problema foi realmente resolvido
+  comentario?: string; // Comentário opcional
+  dataAvaliacao: Date;
+  ignorado?: boolean; // Se o usuário ignorou a avaliação
+}
+
 interface TicketData {
   id: string;
   title: string;
@@ -221,6 +230,8 @@ interface TicketData {
   sla: string;
   description: string;
   attachments?: Attachment[];
+  avaliacao?: Avaliacao;
+  atualizadoEm?: Date; // Para saber quando foi resolvido/fechado
 }
 
 const MOCK_TICKETS: TicketData[] = [
@@ -743,6 +754,160 @@ const AttachmentViewer = ({ attachment, onDownload }: { attachment: Attachment, 
         )}
       </AnimatePresence>
     </>
+  );
+};
+
+// Componente de Avaliação com Estrelas
+const AvaliacaoTicket = ({ 
+  ticket, 
+  onAvaliar, 
+  onIgnorar 
+}: { 
+  ticket: TicketData; 
+  onAvaliar: (nota: number, resolvido: boolean, comentario?: string) => void;
+  onIgnorar: () => void;
+}) => {
+  const [nota, setNota] = useState(0);
+  const [hoverNota, setHoverNota] = useState(0);
+  const [resolvido, setResolvido] = useState<boolean | null>(null);
+  const [comentario, setComentario] = useState('');
+  const [mostrarComentario, setMostrarComentario] = useState(false);
+
+  const handleSubmit = () => {
+    if (nota === 0 || resolvido === null) {
+      return;
+    }
+    onAvaliar(nota, resolvido, comentario || undefined);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-gradient-to-r from-accent-primary/10 to-info/10 border border-accent-primary/30 rounded-xl p-6 mb-6"
+    >
+      <div className="flex items-start gap-4">
+        <div className="w-12 h-12 rounded-full bg-accent-primary/20 flex items-center justify-center shrink-0">
+          <Star className="w-6 h-6 text-accent-primary" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-text-primary mb-2">
+            Como foi sua experiência?
+          </h3>
+          <p className="text-sm text-text-secondary mb-4">
+            Avalie o atendimento do chamado <span className="font-mono text-accent-primary">{ticket.id}</span>
+          </p>
+
+          {/* Pergunta: Problema foi resolvido? */}
+          <div className="mb-4">
+            <p className="text-sm font-medium text-text-primary mb-2">
+              Seu problema foi resolvido?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setResolvido(true)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
+                  resolvido === true
+                    ? 'bg-success/20 border-success text-success'
+                    : 'bg-white/5 border-border-subtle text-text-secondary hover:bg-white/10'
+                }`}
+              >
+                <ThumbsUp className="w-4 h-4" />
+                Sim
+              </button>
+              <button
+                onClick={() => setResolvido(false)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
+                  resolvido === false
+                    ? 'bg-danger/20 border-danger text-danger'
+                    : 'bg-white/5 border-border-subtle text-text-secondary hover:bg-white/10'
+                }`}
+              >
+                <ThumbsDown className="w-4 h-4" />
+                Não
+              </button>
+            </div>
+          </div>
+
+          {/* Avaliação com estrelas */}
+          <div className="mb-4">
+            <p className="text-sm font-medium text-text-primary mb-2">
+              Avalie o atendimento
+            </p>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map((estrela) => (
+                <button
+                  key={estrela}
+                  onClick={() => setNota(estrela)}
+                  onMouseEnter={() => setHoverNota(estrela)}
+                  onMouseLeave={() => setHoverNota(0)}
+                  className="transition-transform hover:scale-110"
+                >
+                  <Star
+                    className={`w-8 h-8 transition-colors ${
+                      estrela <= (hoverNota || nota)
+                        ? 'fill-warning text-warning'
+                        : 'text-text-muted'
+                    }`}
+                  />
+                </button>
+              ))}
+              {nota > 0 && (
+                <span className="ml-2 text-sm text-text-secondary self-center">
+                  {nota === 1 && 'Muito ruim'}
+                  {nota === 2 && 'Ruim'}
+                  {nota === 3 && 'Regular'}
+                  {nota === 4 && 'Bom'}
+                  {nota === 5 && 'Excelente'}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Comentário opcional */}
+          {!mostrarComentario ? (
+            <button
+              onClick={() => setMostrarComentario(true)}
+              className="text-sm text-accent-primary hover:underline mb-4"
+            >
+              + Adicionar comentário (opcional)
+            </button>
+          ) : (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                Comentário adicional (opcional)
+              </label>
+              <textarea
+                value={comentario}
+                onChange={(e) => setComentario(e.target.value)}
+                placeholder="Conte-nos mais sobre sua experiência..."
+                className="w-full bg-bg-primary border border-border-subtle rounded-lg px-4 py-2 text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary/50 transition-all resize-none"
+                rows={3}
+              />
+            </div>
+          )}
+
+          {/* Botões de ação */}
+          <div className="flex gap-3">
+            <Button
+              onClick={handleSubmit}
+              disabled={nota === 0 || resolvido === null}
+              className="gap-2"
+            >
+              <CheckCircle className="w-4 h-4" />
+              Enviar Avaliação
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={onIgnorar}
+              className="text-text-muted"
+            >
+              Agora não
+            </Button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 };
 
@@ -4144,6 +4309,8 @@ interface TicketContextType {
   deletarChamado: (id: string) => void;
   deletarChamados: (ids: string[]) => void;
   atividades: Record<string, any[]>;
+  avaliarChamado: (id: string, nota: number, resolvido: boolean, comentario?: string) => void;
+  ignorarAvaliacao: (id: string) => void;
 }
 
 const TicketContext = React.createContext<TicketContextType | undefined>(
@@ -4261,7 +4428,7 @@ export const TicketProvider = ({ children }: { children: React.ReactNode }) => {
     const statusAnterior = ticket.status;
 
     setTickets(prevTickets =>
-      prevTickets.map((t) => (t.id === id ? { ...t, status: novoStatus } : t))
+      prevTickets.map((t) => (t.id === id ? { ...t, status: novoStatus, atualizadoEm: new Date() } : t))
     );
     adicionarAtividade(id, `Status alterado para ${novoStatus}`);
 
@@ -4285,7 +4452,7 @@ export const TicketProvider = ({ children }: { children: React.ReactNode }) => {
       });
     }
 
-    if (novoStatus === 'Resolvido') {
+    if (novoStatus === 'Resolvido' || novoStatus === 'Fechado') {
       criarNotificacao({
         tipo: 'chamado_resolvido',
         titulo: 'Chamado resolvido',
@@ -4294,7 +4461,66 @@ export const TicketProvider = ({ children }: { children: React.ReactNode }) => {
         linkId: id,
         destinatarios: ['admin', ticket.solicitanteId || '']
       });
+
+      // Criar notificação para solicitar avaliação
+      if (ticket.solicitanteId && !ticket.avaliacao) {
+        criarNotificacao({
+          tipo: 'solicitar_avaliacao',
+          titulo: 'Avalie seu chamado',
+          mensagem: `${id} — "${ticket.title}" foi ${novoStatus.toLowerCase()}. Como foi sua experiência?`,
+          linkTipo: 'chamado',
+          linkId: id,
+          destinatarios: [ticket.solicitanteId]
+        });
+      }
     }
+  };
+
+  const avaliarChamado = (id: string, nota: number, resolvido: boolean, comentario?: string) => {
+    const ticket = tickets.find(t => t.id === id);
+    if (!ticket) return;
+
+    const avaliacao: Avaliacao = {
+      nota,
+      resolvido,
+      comentario,
+      dataAvaliacao: new Date(),
+      ignorado: false
+    };
+
+    setTickets(prevTickets =>
+      prevTickets.map((t) => (t.id === id ? { ...t, avaliacao } : t))
+    );
+
+    adicionarAtividade(id, `Chamado avaliado: ${nota} estrelas - Problema ${resolvido ? 'resolvido' : 'não resolvido'}`, "comment");
+
+    // Notificar admins sobre a avaliação
+    criarNotificacao({
+      tipo: 'chamado_atualizado',
+      titulo: 'Nova avaliação recebida',
+      mensagem: `${id} foi avaliado com ${nota} estrelas${!resolvido ? ' - Problema não foi resolvido' : ''}`,
+      linkTipo: 'chamado',
+      linkId: id,
+      destinatarios: ['admin']
+    });
+
+    showToast('Obrigado pela sua avaliação!', 'success');
+  };
+
+  const ignorarAvaliacao = (id: string) => {
+    const ticket = tickets.find(t => t.id === id);
+    if (!ticket) return;
+
+    const avaliacao: Avaliacao = {
+      nota: 0,
+      resolvido: false,
+      dataAvaliacao: new Date(),
+      ignorado: true
+    };
+
+    setTickets(prevTickets =>
+      prevTickets.map((t) => (t.id === id ? { ...t, avaliacao } : t))
+    );
   };
 
   const atualizarPrioridade = (id: string, novaPrioridade: Priority) => {
@@ -4410,6 +4636,8 @@ export const TicketProvider = ({ children }: { children: React.ReactNode }) => {
         deletarChamado,
         deletarChamados,
         atividades,
+        avaliarChamado,
+        ignorarAvaliacao,
       }}
     >
       {children}
@@ -4669,7 +4897,8 @@ const ItemNotificacao: React.FC<{ notif: Notificacao, onLer: () => void, onDelet
     prioridade_alterada: '⚡',
     kb_criado: '📚',
     kb_editado: '✏️',
-    usuario_criado: '👤'
+    usuario_criado: '👤',
+    solicitar_avaliacao: '⭐'
   };
 
   return (
@@ -4858,6 +5087,8 @@ function MainApp() {
     atividades,
     deletarChamado,
     deletarChamados,
+    avaliarChamado,
+    ignorarAvaliacao,
   } = useTickets();
   const { artigos } = useKB();
   const { usuarios } = useAuth();
@@ -5675,6 +5906,64 @@ function MainApp() {
                     {ticketAtivo.description}
                   </p>
                 </div>
+
+                {/* Componente de Avaliação */}
+                {(ticketAtivo.status === 'Resolvido' || ticketAtivo.status === 'Fechado') && 
+                 usuarioLogado.perfil === 'usuario' && 
+                 ticketAtivo.solicitanteId === usuarioLogado.id &&
+                 !ticketAtivo.avaliacao && (
+                  <div className="mt-6">
+                    <AvaliacaoTicket
+                      ticket={ticketAtivo}
+                      onAvaliar={(nota, resolvido, comentario) => {
+                        avaliarChamado(ticketAtivo.id, nota, resolvido, comentario);
+                        setTicketAtivo({ ...ticketAtivo, avaliacao: { nota, resolvido, comentario, dataAvaliacao: new Date() } });
+                      }}
+                      onIgnorar={() => {
+                        ignorarAvaliacao(ticketAtivo.id);
+                        setTicketAtivo({ ...ticketAtivo, avaliacao: { nota: 0, resolvido: false, dataAvaliacao: new Date(), ignorado: true } });
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Mostrar avaliação já feita */}
+                {ticketAtivo.avaliacao && !ticketAtivo.avaliacao.ignorado && (
+                  <div className="mt-6 p-4 bg-success/10 border border-success/20 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle className="w-5 h-5 text-success shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="text-sm font-semibold text-success mb-2">Avaliação Recebida</h4>
+                        <div className="flex items-center gap-2 mb-2">
+                          {[1, 2, 3, 4, 5].map((estrela) => (
+                            <Star
+                              key={estrela}
+                              className={`w-4 h-4 ${
+                                estrela <= ticketAtivo.avaliacao!.nota
+                                  ? 'fill-warning text-warning'
+                                  : 'text-text-muted'
+                              }`}
+                            />
+                          ))}
+                          <span className="text-sm text-text-secondary ml-2">
+                            ({ticketAtivo.avaliacao.nota}/5)
+                          </span>
+                        </div>
+                        <p className="text-sm text-text-secondary">
+                          Problema {ticketAtivo.avaliacao.resolvido ? 'resolvido' : 'não resolvido'}
+                        </p>
+                        {ticketAtivo.avaliacao.comentario && (
+                          <p className="text-sm text-text-secondary mt-2 italic">
+                            "{ticketAtivo.avaliacao.comentario}"
+                          </p>
+                        )}
+                        <p className="text-xs text-text-muted mt-2">
+                          Avaliado em {new Date(ticketAtivo.avaliacao.dataAvaliacao).toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {ticketAtivo.attachments && ticketAtivo.attachments.length > 0 && (
                   <div className="mt-6 pt-6 border-t border-border-subtle">
