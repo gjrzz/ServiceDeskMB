@@ -133,6 +133,25 @@ const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     const novo = tema === 'escuro' ? 'claro' : 'escuro';
     setTema(novo);
     localStorage.setItem('mb_tema', novo);
+    
+    // @ts-ignore
+    if (window.__bgMaterial && window.__bgRenderer) {
+      if (novo === 'claro') {
+        // @ts-ignore
+        window.__bgMaterial.color.setHex(0x7C3AED);
+        // @ts-ignore
+        window.__bgMaterial.opacity = 0.3;
+        // @ts-ignore
+        window.__bgRenderer.setClearColor(0xf5f3ff, 1);
+      } else {
+        // @ts-ignore
+        window.__bgMaterial.color.setHex(0xb48cff);
+        // @ts-ignore
+        window.__bgMaterial.opacity = 0.6;
+        // @ts-ignore
+        window.__bgRenderer.setClearColor(0x0d0b14, 1);
+      }
+    }
   };
 
   useEffect(() => {
@@ -153,129 +172,101 @@ const useTheme = () => {
 };
 
 // --- THREE.JS BACKGROUND ---
-const Background = () => {
-  const mountRef = useRef<HTMLDivElement>(null);
-  const { tema } = useTheme();
-  const particleMaterialRef = useRef<THREE.PointsMaterial | null>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+// Executar fora de qualquer componente React — direto no escopo global do script
+(function initBackground() {
+  const canvas = document.getElementById('bg-canvas') as HTMLCanvasElement;
+  if (!canvas) {
+    // Canvas ainda não existe, tentar de novo em 100ms
+    setTimeout(initBackground, 100);
+    return;
+  }
 
-  useEffect(() => {
-    if (!mountRef.current) return;
+  const AMOUNTX = 50;
+  const AMOUNTY = 50;
+  const SEPARATION = 120;
 
-    const AMOUNTX = 50;
-    const AMOUNTY = 50;
-    const SEPARATION = 120;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  // Initial color based on localStorage or default to dark
+  const initialTheme = localStorage.getItem('mb_tema') || 'escuro';
+  renderer.setClearColor(initialTheme === 'claro' ? 0xf5f3ff : 0x0d0b14, 1);
 
-    const scene = new THREE.Scene();
+  const scene = new THREE.Scene();
 
-    const camera = new THREE.PerspectiveCamera(
-      60,
-      window.innerWidth / window.innerHeight,
-      1,
-      10000,
-    );
-    camera.position.set(0, 300, 1000);
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
+  camera.position.set(0, 300, 1000);
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setClearColor(tema === 'claro' ? 0xf5f3ff : 0x0d0b14, 1);
-    mountRef.current.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
+  // Criar geometria
+  const totalParticles = AMOUNTX * AMOUNTY;
+  const positions = new Float32Array(totalParticles * 3);
 
-    const numParticles = AMOUNTX * AMOUNTY;
-    const positions = new Float32Array(numParticles * 3);
+  let idx = 0;
+  for (let ix = 0; ix < AMOUNTX; ix++) {
+    for (let iy = 0; iy < AMOUNTY; iy++) {
+      positions[idx * 3 + 0] = ix * SEPARATION - (AMOUNTX * SEPARATION) / 2;
+      positions[idx * 3 + 1] = 0;
+      positions[idx * 3 + 2] = iy * SEPARATION - (AMOUNTY * SEPARATION) / 2;
+      idx++;
+    }
+  }
 
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+  const material = new THREE.PointsMaterial({
+    color: initialTheme === 'claro' ? 0x7C3AED : 0xb48cff,
+    size: 6,
+    transparent: true,
+    opacity: initialTheme === 'claro' ? 0.3 : 0.6,
+    sizeAttenuation: true
+  });
+
+  const points = new THREE.Points(geometry, material);
+  scene.add(points);
+
+  // Variável de contagem FORA do loop de animação
+  let count = 0;
+  let rafId: number | null = null;
+
+  function animate() {
+    rafId = requestAnimationFrame(animate);
+
+    // Atualizar posições Y
+    const pos = geometry.attributes.position.array as Float32Array;
     let i = 0;
     for (let ix = 0; ix < AMOUNTX; ix++) {
       for (let iy = 0; iy < AMOUNTY; iy++) {
-        positions[i] = ix * SEPARATION - (AMOUNTX * SEPARATION) / 2;
-        positions[i + 1] = 0;
-        positions[i + 2] = iy * SEPARATION - (AMOUNTY * SEPARATION) / 2;
-        i += 3;
+        pos[i * 3 + 1] =
+          Math.sin((ix + count) * 0.3) * 100 +
+          Math.sin((iy + count) * 0.5) * 100;
+        i++;
       }
     }
 
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    // CRÍTICO: marcar como atualizado a cada frame
+    geometry.attributes.position.needsUpdate = true;
 
-    const material = new THREE.PointsMaterial({
-      size: 6,
-      vertexColors: false,
-      color: tema === 'claro' ? 0x7C3AED : 0xb48cff,
-      transparent: true,
-      opacity: tema === 'claro' ? 0.35 : 0.6,
-      sizeAttenuation: true,
-    });
-    particleMaterialRef.current = material;
+    renderer.render(scene, camera);
+    count += 0.08;
+  }
 
-    const particles = new THREE.Points(geometry, material);
-    scene.add(particles);
+  // Iniciar animação
+  animate();
 
-    let count = 0;
-    let animationFrameId: number;
+  // Resize
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
 
-    const animate = () => {
-      animationFrameId = requestAnimationFrame(animate);
-
-      const positions = particles.geometry.attributes.position
-        .array as Float32Array;
-      let i = 0;
-      for (let ix = 0; ix < AMOUNTX; ix++) {
-        for (let iy = 0; iy < AMOUNTY; iy++) {
-          positions[i + 1] =
-            Math.sin((ix + count) * 0.3) * 100 +
-            Math.sin((iy + count) * 0.5) * 100;
-          i += 3;
-        }
-      }
-      particles.geometry.attributes.position.needsUpdate = true;
-      count += 0.08;
-
-      renderer.render(scene, camera);
-    };
-
-    animate();
-
-    const handleResize = () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    };
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      cancelAnimationFrame(animationFrameId);
-      if (mountRef.current) {
-        mountRef.current.removeChild(renderer.domElement);
-      }
-      geometry.dispose();
-      material.dispose();
-      renderer.dispose();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!particleMaterialRef.current || !rendererRef.current) return;
-    if (tema === 'claro') {
-      particleMaterialRef.current.color.setHex(0x7C3AED);
-      particleMaterialRef.current.opacity = 0.35;
-      rendererRef.current.setClearColor(0xf5f3ff, 1);
-    } else {
-      particleMaterialRef.current.color.setHex(0xb48cff);
-      particleMaterialRef.current.opacity = 0.6;
-      rendererRef.current.setClearColor(0x0d0b14, 1);
-    }
-  }, [tema]);
-
-  return (
-    <div
-      ref={mountRef}
-      className="fixed inset-0 z-[0] pointer-events-none w-screen h-screen"
-    />
-  );
-};
+  // Expor para troca de tema
+  // @ts-ignore
+  window.__bgMaterial = material;
+  // @ts-ignore
+  window.__bgRenderer = renderer;
+})();
 
 // --- TYPES & MOCK DATA ---
 type Priority = "Baixo" | "Médio" | "Alto" | "Crítico";
@@ -4899,7 +4890,6 @@ function MainApp() {
   if (!usuarioLogado) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 relative">
-        <Background />
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -5023,7 +5013,6 @@ function MainApp() {
 
   return (
     <div className="min-h-screen flex bg-transparent text-text-primary relative overflow-hidden">
-      <Background />
 
       {/* Sidebar */}
       <aside className="w-64 bg-bg-sidebar/80 backdrop-blur-xl border-r border-border-subtle flex flex-col z-[100] hidden md:flex">

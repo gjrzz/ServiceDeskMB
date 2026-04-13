@@ -6,7 +6,11 @@
     <title>My Google AI Studio App</title>
   </head>
   <body>
-    <div id="root"></div>
+    <canvas 
+      id="bg-canvas" 
+      style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:0;pointer-events:none;display:block;"
+    ></canvas>
+    <div id="root" style="position:relative;z-index:1;"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
