@@ -4877,6 +4877,16 @@ function MainApp() {
     setSelectedTickets([]);
   }, [currentView]);
 
+  // Redirecionar usuários padrão para "my-tickets" se estiverem em views restritas
+  useEffect(() => {
+    if (usuarioLogado?.perfil === 'usuario') {
+      const viewsRestritasParaUsuario = ['dashboard', 'all-tickets', 'reports', 'users', 'settings'];
+      if (viewsRestritasParaUsuario.includes(currentView)) {
+        setCurrentView('my-tickets');
+      }
+    }
+  }, [usuarioLogado, currentView]);
+
   // Estado de intenção de navegação
   const [intencaoNavegacao, setIntencaoNavegacao] = useState<{ tipo: string, id: string } | null>(null);
 
@@ -5003,10 +5013,10 @@ function MainApp() {
       if (!result.success) {
         setLoginError(result.error || "Erro ao fazer login");
       } else {
+        // Verificar o perfil do usuário que acabou de fazer login
+        const usuario = usuarios.find(u => u.email === loginEmail);
         setCurrentView(
-          result.success && usuarioLogado?.perfil === "usuario"
-            ? "my-tickets"
-            : "dashboard",
+          usuario?.perfil === "usuario" ? "my-tickets" : "dashboard"
         );
       }
     }, 800);
