@@ -2896,141 +2896,160 @@ const AllTicketsView = ({
       </Card>
 
       <Card className="p-0 overflow-hidden relative">
+        <AnimatePresence>
         {selectedTickets.length > 0 && (
           <motion.div 
-            initial={{ y: 50, opacity: 0 }}
+            initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 bg-bg-elevated border border-accent-primary/30 shadow-[0_10px_40px_rgba(0,0,0,0.5)] rounded-2xl px-6 py-4 flex items-center gap-6 backdrop-blur-xl min-w-[500px]"
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-6 left-6 right-6 z-[1000] bg-bg-elevated border border-accent-primary/30 shadow-[0_20px_60px_rgba(0,0,0,0.7)] rounded-2xl px-8 py-5 backdrop-blur-xl max-w-7xl mx-auto"
           >
-            <span className="text-sm font-medium text-text-primary">
-              <span className="text-accent-primary font-bold">{selectedTickets.length}</span> chamados selecionados
-            </span>
-            <div className="h-6 w-px bg-border-subtle"></div>
-            <div className="flex items-center gap-3">
-              {/* Alterar Status */}
-              <div className="relative">
-                <Select
-                  className="w-36 py-1.5 text-xs bg-bg-surface border-accent-primary/30"
-                  onChange={(e: any) => {
-                    if (e.target.value) {
-                      pedirConfirmacao({
-                        titulo: 'Alterar Status dos Chamados',
-                        mensagem: `Alterar o status de ${selectedTickets.length} chamados para "${e.target.value}"?`,
-                        textoBotao: 'Alterar Status',
-                        tipo: 'aviso',
-                        onConfirmar: () => {
-                          selectedTickets.forEach(id => atualizarStatus(id, e.target.value as Status));
-                          setSelectedTickets([]);
-                          showToast(`Status de ${selectedTickets.length} chamados alterado para ${e.target.value}`, 'success');
-                        }
-                      });
-                      e.target.value = ''; // Reset select
-                    }
-                  }}
-                >
-                  <option value="">Alterar Status</option>
-                  <option value="Aberto">Aberto</option>
-                  <option value="Em Andamento">Em Andamento</option>
-                  <option value="Aguardando">Aguardando</option>
-                  <option value="Resolvido">Resolvido</option>
-                  <option value="Fechado">Fechado</option>
-                </Select>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+              {/* Contador de selecionados */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-accent-primary/20 flex items-center justify-center">
+                  <span className="text-accent-primary font-bold text-sm">{selectedTickets.length}</span>
+                </div>
+                <div>
+                  <p className="text-base font-semibold text-text-primary">
+                    {selectedTickets.length} chamado{selectedTickets.length > 1 ? 's' : ''} selecionado{selectedTickets.length > 1 ? 's' : ''}
+                  </p>
+                  <p className="text-xs text-text-muted">Escolha uma ação para aplicar em lote</p>
+                </div>
               </div>
 
-              {/* Alterar Prioridade */}
-              <div className="relative">
-                <Select
-                  className="w-36 py-1.5 text-xs bg-bg-surface border-accent-primary/30"
-                  onChange={(e: any) => {
-                    if (e.target.value) {
+              {/* Ações */}
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Alterar Status */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-text-secondary">Status</label>
+                  <Select
+                    className="w-36 py-2 text-sm bg-bg-surface border-accent-primary/30"
+                    onChange={(e: any) => {
+                      if (e.target.value) {
+                        pedirConfirmacao({
+                          titulo: 'Alterar Status dos Chamados',
+                          mensagem: `Alterar o status de ${selectedTickets.length} chamados para "${e.target.value}"?`,
+                          textoBotao: 'Alterar Status',
+                          tipo: 'aviso',
+                          onConfirmar: () => {
+                            selectedTickets.forEach(id => atualizarStatus(id, e.target.value as Status));
+                            setSelectedTickets([]);
+                            showToast(`Status de ${selectedTickets.length} chamados alterado para ${e.target.value}`, 'success');
+                          }
+                        });
+                        e.target.value = ''; // Reset select
+                      }
+                    }}
+                  >
+                    <option value="">Alterar Status</option>
+                    <option value="Aberto">Aberto</option>
+                    <option value="Em Andamento">Em Andamento</option>
+                    <option value="Aguardando">Aguardando</option>
+                    <option value="Resolvido">Resolvido</option>
+                    <option value="Fechado">Fechado</option>
+                  </Select>
+                </div>
+
+                {/* Alterar Prioridade */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-text-secondary">Prioridade</label>
+                  <Select
+                    className="w-36 py-2 text-sm bg-bg-surface border-accent-primary/30"
+                    onChange={(e: any) => {
+                      if (e.target.value) {
+                        pedirConfirmacao({
+                          titulo: 'Alterar Prioridade dos Chamados',
+                          mensagem: `Alterar a prioridade de ${selectedTickets.length} chamados para "${e.target.value}"?`,
+                          textoBotao: 'Alterar Prioridade',
+                          tipo: 'aviso',
+                          onConfirmar: () => {
+                            selectedTickets.forEach(id => atualizarPrioridade(id, e.target.value as Priority));
+                            setSelectedTickets([]);
+                            showToast(`Prioridade de ${selectedTickets.length} chamados alterada para ${e.target.value}`, 'success');
+                          }
+                        });
+                        e.target.value = ''; // Reset select
+                      }
+                    }}
+                  >
+                    <option value="">Alterar Prioridade</option>
+                    <option value="Crítico">Crítico</option>
+                    <option value="Alto">Alto</option>
+                    <option value="Médio">Médio</option>
+                    <option value="Baixo">Baixo</option>
+                  </Select>
+                </div>
+
+                {/* Atribuir Responsável */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-text-secondary">Responsável</label>
+                  <Select
+                    className="w-44 py-2 text-sm bg-bg-surface border-accent-primary/30"
+                    onChange={(e: any) => {
+                      if (e.target.value) {
+                        pedirConfirmacao({
+                          titulo: 'Atribuir Responsável',
+                          mensagem: `Atribuir ${selectedTickets.length} chamados para "${e.target.value}"?`,
+                          textoBotao: 'Atribuir',
+                          tipo: 'aviso',
+                          onConfirmar: () => {
+                            selectedTickets.forEach(id => atribuirResponsavel(id, e.target.value));
+                            setSelectedTickets([]);
+                            showToast(`${selectedTickets.length} chamados atribuídos para ${e.target.value}`, 'success');
+                          }
+                        });
+                        e.target.value = ''; // Reset select
+                      }
+                    }}
+                  >
+                    <option value="">Atribuir Responsável</option>
+                    <option value="Não atribuído">Não atribuído</option>
+                    {usuarios
+                      .filter((u) => u.ativo)
+                      .map((u) => (
+                        <option key={u.id} value={u.nome}>
+                          {u.nome}
+                        </option>
+                      ))}
+                  </Select>
+                </div>
+
+                <div className="h-12 w-px bg-border-subtle mx-2"></div>
+
+                {/* Botões de Ação */}
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => {
                       pedirConfirmacao({
-                        titulo: 'Alterar Prioridade dos Chamados',
-                        mensagem: `Alterar a prioridade de ${selectedTickets.length} chamados para "${e.target.value}"?`,
-                        textoBotao: 'Alterar Prioridade',
-                        tipo: 'aviso',
+                        titulo: 'Excluir Chamados Selecionados',
+                        mensagem: `Tem certeza que deseja excluir os ${selectedTickets.length} chamados selecionados?`,
+                        mensagemExtra: 'Esta ação não pode ser desfeita.',
+                        textoBotao: 'Excluir Chamados',
+                        tipo: 'perigo',
                         onConfirmar: () => {
-                          selectedTickets.forEach(id => atualizarPrioridade(id, e.target.value as Priority));
+                          deletarChamados(selectedTickets);
                           setSelectedTickets([]);
-                          showToast(`Prioridade de ${selectedTickets.length} chamados alterada para ${e.target.value}`, 'success');
                         }
                       });
-                      e.target.value = ''; // Reset select
-                    }
-                  }}
-                >
-                  <option value="">Alterar Prioridade</option>
-                  <option value="Crítico">Crítico</option>
-                  <option value="Alto">Alto</option>
-                  <option value="Médio">Médio</option>
-                  <option value="Baixo">Baixo</option>
-                </Select>
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-danger hover:bg-danger/10 transition-colors border border-danger/30 bg-danger/5"
+                  >
+                    <Trash2 className="w-4 h-4" /> Excluir
+                  </button>
+
+                  <button 
+                    onClick={() => setSelectedTickets([])}
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors border border-border-subtle"
+                  >
+                    Cancelar
+                  </button>
+                </div>
               </div>
-
-              {/* Atribuir Responsável */}
-              <div className="relative">
-                <Select
-                  className="w-40 py-1.5 text-xs bg-bg-surface border-accent-primary/30"
-                  onChange={(e: any) => {
-                    if (e.target.value) {
-                      pedirConfirmacao({
-                        titulo: 'Atribuir Responsável',
-                        mensagem: `Atribuir ${selectedTickets.length} chamados para "${e.target.value}"?`,
-                        textoBotao: 'Atribuir',
-                        tipo: 'aviso',
-                        onConfirmar: () => {
-                          selectedTickets.forEach(id => atribuirResponsavel(id, e.target.value));
-                          setSelectedTickets([]);
-                          showToast(`${selectedTickets.length} chamados atribuídos para ${e.target.value}`, 'success');
-                        }
-                      });
-                      e.target.value = ''; // Reset select
-                    }
-                  }}
-                >
-                  <option value="">Atribuir Responsável</option>
-                  <option value="Não atribuído">Não atribuído</option>
-                  {usuarios
-                    .filter((u) => u.ativo)
-                    .map((u) => (
-                      <option key={u.id} value={u.nome}>
-                        {u.nome}
-                      </option>
-                    ))}
-                </Select>
-              </div>
-
-              <div className="h-6 w-px bg-border-subtle"></div>
-
-              {/* Excluir */}
-              <button 
-                onClick={() => {
-                  pedirConfirmacao({
-                    titulo: 'Excluir Chamados Selecionados',
-                    mensagem: `Tem certeza que deseja excluir os ${selectedTickets.length} chamados selecionados?`,
-                    mensagemExtra: 'Esta ação não pode ser desfeita.',
-                    textoBotao: 'Excluir Chamados',
-                    tipo: 'perigo',
-                    onConfirmar: () => {
-                      deletarChamados(selectedTickets);
-                      setSelectedTickets([]);
-                    }
-                  });
-                }}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-danger hover:bg-danger/10 transition-colors border border-danger/20"
-              >
-                <Trash2 className="w-4 h-4" /> Excluir
-              </button>
-
-              {/* Cancelar */}
-              <button 
-                onClick={() => setSelectedTickets([])}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-text-secondary hover:text-text-primary transition-colors"
-              >
-                Cancelar
-              </button>
             </div>
           </motion.div>
         )}
+        </AnimatePresence>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
