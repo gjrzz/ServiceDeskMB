@@ -2793,6 +2793,15 @@ const AllTicketsView = ({
   const { pedirConfirmacao, showToast } = useAppContext();
   const [showBulkActions, setShowBulkActions] = useState(false);
 
+  // Forçar re-renderização quando tickets mudarem
+  const [, forceUpdate] = useState({});
+  const [lastUpdate, setLastUpdate] = useState(Date.now());
+  
+  useEffect(() => {
+    forceUpdate({});
+    setLastUpdate(Date.now());
+  }, [tickets]);
+
   const filteredTickets = tickets.filter((t) => {
     if (isMyTickets && t.solicitanteId !== usuarioLogado?.id) return false;
 
@@ -2900,7 +2909,7 @@ const AllTicketsView = ({
 
       <Card className="p-0 overflow-hidden relative">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table key={lastUpdate} className="w-full text-left text-sm">
             <thead className="bg-black/20 text-text-secondary">
               <tr>
                 {usuarioLogado?.perfil === 'admin' && !isMyTickets && (
@@ -4240,8 +4249,8 @@ export const TicketProvider = ({ children }: { children: React.ReactNode }) => {
     if (!ticket) return;
     const statusAnterior = ticket.status;
 
-    setTickets(
-      tickets.map((t) => (t.id === id ? { ...t, status: novoStatus } : t)),
+    setTickets(prevTickets =>
+      prevTickets.map((t) => (t.id === id ? { ...t, status: novoStatus } : t))
     );
     adicionarAtividade(id, `Status alterado para ${novoStatus}`);
 
@@ -4278,10 +4287,10 @@ export const TicketProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const atualizarPrioridade = (id: string, novaPrioridade: Priority) => {
-    setTickets(
-      tickets.map((t) =>
+    setTickets(prevTickets =>
+      prevTickets.map((t) =>
         t.id === id ? { ...t, priority: novaPrioridade } : t,
-      ),
+      )
     );
     adicionarAtividade(id, `Prioridade alterada para ${novaPrioridade}`);
   };
@@ -4290,8 +4299,8 @@ export const TicketProvider = ({ children }: { children: React.ReactNode }) => {
     const ticket = tickets.find(t => t.id === id);
     if (!ticket) return;
 
-    setTickets(
-      tickets.map((t) => (t.id === id ? { ...t, assignee: responsavel } : t)),
+    setTickets(prevTickets =>
+      prevTickets.map((t) => (t.id === id ? { ...t, assignee: responsavel } : t))
     );
     adicionarAtividade(id, `Atribuído a ${responsavel}`);
 
@@ -5336,17 +5345,14 @@ function MainApp() {
                     onChange={(e: any) => {
                       if (e.target.value) {
                         const statusValue = e.target.value;
-                        const ticketsToUpdate = [...selectedTickets]; // Capturar o valor atual
-                        console.log('Alterando status para:', statusValue, 'dos tickets:', ticketsToUpdate);
+                        const ticketsToUpdate = [...selectedTickets];
                         pedirConfirmacao({
                           titulo: 'Alterar Status dos Chamados',
                           mensagem: `Alterar o status de ${ticketsToUpdate.length} chamados para "${statusValue}"?`,
                           textoBotao: 'Alterar Status',
                           tipo: 'aviso',
                           onConfirmar: () => {
-                            console.log('Confirmado! Alterando status...');
                             ticketsToUpdate.forEach(id => {
-                              console.log('Alterando status do ticket:', id, 'para:', statusValue);
                               atualizarStatus(id, statusValue as Status);
                             });
                             setSelectedTickets([]);
