@@ -5335,15 +5335,22 @@ function MainApp() {
                     className="w-36 py-2 text-sm bg-bg-surface border-accent-primary/30"
                     onChange={(e: any) => {
                       if (e.target.value) {
+                        const statusValue = e.target.value;
+                        const ticketsToUpdate = [...selectedTickets]; // Capturar o valor atual
+                        console.log('Alterando status para:', statusValue, 'dos tickets:', ticketsToUpdate);
                         pedirConfirmacao({
                           titulo: 'Alterar Status dos Chamados',
-                          mensagem: `Alterar o status de ${selectedTickets.length} chamados para "${e.target.value}"?`,
+                          mensagem: `Alterar o status de ${ticketsToUpdate.length} chamados para "${statusValue}"?`,
                           textoBotao: 'Alterar Status',
                           tipo: 'aviso',
                           onConfirmar: () => {
-                            selectedTickets.forEach(id => atualizarStatus(id, e.target.value as Status));
+                            console.log('Confirmado! Alterando status...');
+                            ticketsToUpdate.forEach(id => {
+                              console.log('Alterando status do ticket:', id, 'para:', statusValue);
+                              atualizarStatus(id, statusValue as Status);
+                            });
                             setSelectedTickets([]);
-                            showToast(`Status de ${selectedTickets.length} chamados alterado para ${e.target.value}`, 'success');
+                            showToast(`Status de ${ticketsToUpdate.length} chamados alterado para ${statusValue}`, 'success');
                           }
                         });
                         e.target.value = ''; // Reset select
@@ -5366,15 +5373,17 @@ function MainApp() {
                     className="w-36 py-2 text-sm bg-bg-surface border-accent-primary/30"
                     onChange={(e: any) => {
                       if (e.target.value) {
+                        const prioridadeValue = e.target.value;
+                        const ticketsToUpdate = [...selectedTickets];
                         pedirConfirmacao({
                           titulo: 'Alterar Prioridade dos Chamados',
-                          mensagem: `Alterar a prioridade de ${selectedTickets.length} chamados para "${e.target.value}"?`,
+                          mensagem: `Alterar a prioridade de ${ticketsToUpdate.length} chamados para "${prioridadeValue}"?`,
                           textoBotao: 'Alterar Prioridade',
                           tipo: 'aviso',
                           onConfirmar: () => {
-                            selectedTickets.forEach(id => atualizarPrioridade(id, e.target.value as Priority));
+                            ticketsToUpdate.forEach(id => atualizarPrioridade(id, prioridadeValue as Priority));
                             setSelectedTickets([]);
-                            showToast(`Prioridade de ${selectedTickets.length} chamados alterada para ${e.target.value}`, 'success');
+                            showToast(`Prioridade de ${ticketsToUpdate.length} chamados alterada para ${prioridadeValue}`, 'success');
                           }
                         });
                         e.target.value = ''; // Reset select
@@ -5396,15 +5405,17 @@ function MainApp() {
                     className="w-44 py-2 text-sm bg-bg-surface border-accent-primary/30"
                     onChange={(e: any) => {
                       if (e.target.value) {
+                        const responsavelValue = e.target.value;
+                        const ticketsToUpdate = [...selectedTickets];
                         pedirConfirmacao({
                           titulo: 'Atribuir Responsável',
-                          mensagem: `Atribuir ${selectedTickets.length} chamados para "${e.target.value}"?`,
+                          mensagem: `Atribuir ${ticketsToUpdate.length} chamados para "${responsavelValue}"?`,
                           textoBotao: 'Atribuir',
                           tipo: 'aviso',
                           onConfirmar: () => {
-                            selectedTickets.forEach(id => atribuirResponsavel(id, e.target.value));
+                            ticketsToUpdate.forEach(id => atribuirResponsavel(id, responsavelValue));
                             setSelectedTickets([]);
-                            showToast(`${selectedTickets.length} chamados atribuídos para ${e.target.value}`, 'success');
+                            showToast(`${ticketsToUpdate.length} chamados atribuídos para ${responsavelValue}`, 'success');
                           }
                         });
                         e.target.value = ''; // Reset select
@@ -5429,14 +5440,15 @@ function MainApp() {
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => {
+                      const ticketsToDelete = [...selectedTickets];
                       pedirConfirmacao({
                         titulo: 'Excluir Chamados Selecionados',
-                        mensagem: `Tem certeza que deseja excluir os ${selectedTickets.length} chamados selecionados?`,
+                        mensagem: `Tem certeza que deseja excluir os ${ticketsToDelete.length} chamados selecionados?`,
                         mensagemExtra: 'Esta ação não pode ser desfeita.',
                         textoBotao: 'Excluir Chamados',
                         tipo: 'perigo',
                         onConfirmar: () => {
-                          deletarChamados(selectedTickets);
+                          deletarChamados(ticketsToDelete);
                           setSelectedTickets([]);
                         }
                       });
