@@ -2784,8 +2784,8 @@ const AllTicketsView = ({
   onOpenTicket: (t: TicketData) => void;
   isMyTickets?: boolean;
 }) => {
-  const { tickets, filtros, setFiltros, deletarChamados, deletarChamado } = useTickets();
-  const { usuarioLogado } = useAuth();
+  const { tickets, filtros, setFiltros, deletarChamados, deletarChamado, atualizarStatus, atualizarPrioridade, atribuirResponsavel } = useTickets();
+  const { usuarioLogado, usuarios } = useAuth();
   const { pedirConfirmacao, showToast } = useAppContext();
   const [selectedTickets, setSelectedTickets] = useState<string[]>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
@@ -2900,13 +2900,108 @@ const AllTicketsView = ({
           <motion.div 
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 bg-bg-elevated border border-accent-primary/30 shadow-[0_10px_40px_rgba(0,0,0,0.5)] rounded-full px-6 py-3 flex items-center gap-6 backdrop-blur-xl"
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 bg-bg-elevated border border-accent-primary/30 shadow-[0_10px_40px_rgba(0,0,0,0.5)] rounded-2xl px-6 py-4 flex items-center gap-6 backdrop-blur-xl min-w-[500px]"
           >
             <span className="text-sm font-medium text-text-primary">
               <span className="text-accent-primary font-bold">{selectedTickets.length}</span> chamados selecionados
             </span>
-            <div className="h-4 w-px bg-border-subtle"></div>
-            <div className="flex items-center gap-2">
+            <div className="h-6 w-px bg-border-subtle"></div>
+            <div className="flex items-center gap-3">
+              {/* Alterar Status */}
+              <div className="relative">
+                <Select
+                  className="w-36 py-1.5 text-xs bg-bg-surface border-accent-primary/30"
+                  onChange={(e: any) => {
+                    if (e.target.value) {
+                      pedirConfirmacao({
+                        titulo: 'Alterar Status dos Chamados',
+                        mensagem: `Alterar o status de ${selectedTickets.length} chamados para "${e.target.value}"?`,
+                        textoBotao: 'Alterar Status',
+                        tipo: 'aviso',
+                        onConfirmar: () => {
+                          selectedTickets.forEach(id => atualizarStatus(id, e.target.value as Status));
+                          setSelectedTickets([]);
+                          showToast(`Status de ${selectedTickets.length} chamados alterado para ${e.target.value}`, 'success');
+                        }
+                      });
+                      e.target.value = ''; // Reset select
+                    }
+                  }}
+                >
+                  <option value="">Alterar Status</option>
+                  <option value="Aberto">Aberto</option>
+                  <option value="Em Andamento">Em Andamento</option>
+                  <option value="Aguardando">Aguardando</option>
+                  <option value="Resolvido">Resolvido</option>
+                  <option value="Fechado">Fechado</option>
+                </Select>
+              </div>
+
+              {/* Alterar Prioridade */}
+              <div className="relative">
+                <Select
+                  className="w-36 py-1.5 text-xs bg-bg-surface border-accent-primary/30"
+                  onChange={(e: any) => {
+                    if (e.target.value) {
+                      pedirConfirmacao({
+                        titulo: 'Alterar Prioridade dos Chamados',
+                        mensagem: `Alterar a prioridade de ${selectedTickets.length} chamados para "${e.target.value}"?`,
+                        textoBotao: 'Alterar Prioridade',
+                        tipo: 'aviso',
+                        onConfirmar: () => {
+                          selectedTickets.forEach(id => atualizarPrioridade(id, e.target.value as Priority));
+                          setSelectedTickets([]);
+                          showToast(`Prioridade de ${selectedTickets.length} chamados alterada para ${e.target.value}`, 'success');
+                        }
+                      });
+                      e.target.value = ''; // Reset select
+                    }
+                  }}
+                >
+                  <option value="">Alterar Prioridade</option>
+                  <option value="Crítico">Crítico</option>
+                  <option value="Alto">Alto</option>
+                  <option value="Médio">Médio</option>
+                  <option value="Baixo">Baixo</option>
+                </Select>
+              </div>
+
+              {/* Atribuir Responsável */}
+              <div className="relative">
+                <Select
+                  className="w-40 py-1.5 text-xs bg-bg-surface border-accent-primary/30"
+                  onChange={(e: any) => {
+                    if (e.target.value) {
+                      pedirConfirmacao({
+                        titulo: 'Atribuir Responsável',
+                        mensagem: `Atribuir ${selectedTickets.length} chamados para "${e.target.value}"?`,
+                        textoBotao: 'Atribuir',
+                        tipo: 'aviso',
+                        onConfirmar: () => {
+                          selectedTickets.forEach(id => atribuirResponsavel(id, e.target.value));
+                          setSelectedTickets([]);
+                          showToast(`${selectedTickets.length} chamados atribuídos para ${e.target.value}`, 'success');
+                        }
+                      });
+                      e.target.value = ''; // Reset select
+                    }
+                  }}
+                >
+                  <option value="">Atribuir Responsável</option>
+                  <option value="Não atribuído">Não atribuído</option>
+                  {usuarios
+                    .filter((u) => u.ativo)
+                    .map((u) => (
+                      <option key={u.id} value={u.nome}>
+                        {u.nome}
+                      </option>
+                    ))}
+                </Select>
+              </div>
+
+              <div className="h-6 w-px bg-border-subtle"></div>
+
+              {/* Excluir */}
               <button 
                 onClick={() => {
                   pedirConfirmacao({
@@ -2921,10 +3016,12 @@ const AllTicketsView = ({
                     }
                   });
                 }}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-danger hover:bg-danger/10 transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-danger hover:bg-danger/10 transition-colors border border-danger/20"
               >
-                <Trash2 className="w-4 h-4" /> Excluir Todos
+                <Trash2 className="w-4 h-4" /> Excluir
               </button>
+
+              {/* Cancelar */}
               <button 
                 onClick={() => setSelectedTickets([])}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium text-text-secondary hover:text-text-primary transition-colors"
