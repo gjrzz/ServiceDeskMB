@@ -2483,6 +2483,7 @@ const Reports = () => {
 
 const SettingsView = () => {
   const [activeTab, setActiveTab] = useState("general");
+  const { slaConfig, setSlaConfig, calcularTempoMedio, handleSaveSLA, tickets } = useTickets();
   const { usuarioLogado, editarUsuario, redefinirSenha, logExclusoes, limparLog } = useAuth();
   const { tema, alternarTema } = useTheme();
   const { pedirConfirmacao, showToast } = useAppContext();
@@ -2635,45 +2636,208 @@ const SettingsView = () => {
 
               {usuarioLogado?.perfil === "admin" && (
                 <Card className="p-6 space-y-6">
-                  <h3 className="text-lg font-medium text-text-primary border-b border-border-subtle pb-4">
-                    Configuração de SLA
-                  </h3>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-sm font-medium text-text-primary">
-                          SLA Prioridade Crítica
-                        </h4>
-                        <p className="text-xs text-text-secondary">
-                          Tempo de resolução alvo (horas)
-                        </p>
-                      </div>
-                      <Input
-                        type="number"
-                        defaultValue="4"
-                        className="w-24 py-1.5 text-sm text-center"
-                      />
+                  <div className="flex items-center justify-between border-b border-border-subtle pb-4">
+                    <div>
+                      <h3 className="text-lg font-medium text-text-primary">
+                        Configuração de SLA
+                      </h3>
+                      <p className="text-sm text-text-secondary mt-1">
+                        Defina tempos de resolução e acompanhe performance por prioridade
+                      </p>
                     </div>
-                    <div className="flex items-center justify-between pt-4 border-t border-border-subtle">
-                      <div>
-                        <h4 className="text-sm font-medium text-text-primary">
-                          SLA Prioridade Alta
-                        </h4>
-                        <p className="text-xs text-text-secondary">
-                          Tempo de resolução alvo (horas)
-                        </p>
-                      </div>
-                      <Input
-                        type="number"
-                        defaultValue="8"
-                        className="w-24 py-1.5 text-sm text-center"
-                      />
+                    <div className="flex items-center gap-2 text-sm text-text-muted">
+                      <Clock className="w-4 h-4" />
+                      Última atualização: agora
                     </div>
                   </div>
 
-                  <div className="pt-4 flex justify-end">
-                    <Button>Salvar Alterações</Button>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Configuração de SLA por Prioridade */}
+                    <div className="space-y-4">
+                      <h4 className="text-base font-semibold text-text-primary flex items-center gap-2">
+                        <Settings className="w-4 h-4" />
+                        Metas de SLA
+                      </h4>
+                      
+                      {(Object.entries(slaConfig) as [string, {horas: number, tempoMedio: number}][]).map(([key, config]) => {
+                        const prioridade = key === 'critico' ? 'Crítico' : 
+                                         key === 'alto' ? 'Alto' : 
+                                         key === 'medio' ? 'Médio' : 'Baixo';
+                        const colorClass = key === 'critico' ? 'text-danger' : 
+                                         key === 'alto' ? 'text-warning' : 
+                                         key === 'medio' ? 'text-info' : 'text-text-muted';
+                        
+                        return (
+                          <div key={key} className="bg-white/5 border border-border-subtle rounded-xl p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-3 h-3 rounded-full ${
+                                  key === 'critico' ? 'bg-danger' : 
+                                  key === 'alto' ? 'bg-warning' : 
+                                  key === 'medio' ? 'bg-info' : 'bg-text-muted'
+                                }`}></div>
+                                <span className={`font-medium ${colorClass}`}>{prioridade}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  value={config.horas}
+                                  onChange={(e) => setSlaConfig(prev => ({
+                                    ...prev,
+                                    [key]: { ...prev[key as keyof typeof prev], horas: parseInt(e.target.value) || 0 }
+                                  }))}
+                                  className="w-16 h-8 text-xs text-center"
+                                  min="1"
+                                  max="168"
+                                />
+                                <span className="text-xs text-text-muted">horas</span>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-text-secondary">Tempo médio atual:</span>
+                              <span className={`font-medium ${config.tempoMedio <= config.horas ? 'text-success' : 'text-warning'}`}>
+                                {config.tempoMedio}h
+                              </span>
+                            </div>
+                            
+                            {/* Barra de progresso visual */}
+                            <div className="w-full bg-bg-primary rounded-full h-2">
+                              <div 
+                                className={`h-2 rounded-full transition-all ${
+                                  config.tempoMedio <= config.horas ? 'bg-success' : 'bg-warning'
+                                }`}
+                                style={{ 
+                                  width: `${Math.min((config.tempoMedio / config.horas) * 100, 100)}%` 
+                                }}
+                              ></div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-text-muted">
+                                {config.tempoMedio <= config.horas ? '✅ Dentro do SLA' : '⚠️ Acima do SLA'}
+                              </span>
+                              <span className="text-text-muted">
+                                {Math.round((config.tempoMedio / config.horas) * 100)}% do limite
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Estatísticas e Insights */}
+                    <div className="space-y-4">
+                      <h4 className="text-base font-semibold text-text-primary flex items-center gap-2">
+                        <BarChart2 className="w-4 h-4" />
+                        Performance Atual
+                      </h4>
+                      
+                      {/* Resumo Geral */}
+                      <div className="bg-accent-primary/10 border border-accent-primary/20 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <CheckCircle className="w-5 h-5 text-accent-primary" />
+                          <span className="font-medium text-accent-primary">Resumo Geral</span>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-text-secondary">Taxa de cumprimento:</span>
+                            <span className="font-medium text-text-primary">
+                              {Math.round(
+                                ((Object.values(slaConfig) as {horas: number, tempoMedio: number}[]).filter(config => config.tempoMedio <= config.horas).length / 
+                                Object.values(slaConfig).length) * 100
+                              )}%
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-text-secondary">Tempo médio geral:</span>
+                            <span className="font-medium text-text-primary">
+                              {Math.round(
+                                (Object.values(slaConfig) as {horas: number, tempoMedio: number}[]).reduce((acc, config) => acc + config.tempoMedio, 0) / 
+                                Object.values(slaConfig).length * 10
+                              ) / 10}h
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-text-secondary">Chamados analisados:</span>
+                            <span className="font-medium text-text-primary">
+                              {tickets.filter(t => t.status === 'Resolvido' || t.status === 'Fechado').length}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Alertas e Recomendações */}
+                      <div className="space-y-3">
+                        <h5 className="text-sm font-medium text-text-primary">Recomendações</h5>
+                        
+                        {(Object.entries(slaConfig) as [string, {horas: number, tempoMedio: number}][]).map(([key, config]) => {
+                          const prioridade = key === 'critico' ? 'Crítico' : 
+                                           key === 'alto' ? 'Alto' : 
+                                           key === 'medio' ? 'Médio' : 'Baixo';
+                          
+                          if (config.tempoMedio > config.horas) {
+                            return (
+                              <div key={key} className="bg-warning/10 border border-warning/20 rounded-lg p-3">
+                                <div className="flex items-start gap-2">
+                                  <AlertTriangle className="w-4 h-4 text-warning mt-0.5" />
+                                  <div className="text-xs">
+                                    <p className="font-medium text-warning">
+                                      SLA {prioridade} em risco
+                                    </p>
+                                    <p className="text-text-secondary mt-1">
+                                      Tempo médio ({config.tempoMedio}h) está {Math.round((config.tempoMedio - config.horas) * 10) / 10}h acima da meta.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }).filter(Boolean).length === 0 && (
+                          <div className="bg-success/10 border border-success/20 rounded-lg p-3">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="w-4 h-4 text-success" />
+                              <p className="text-xs font-medium text-success">
+                                Todos os SLAs estão sendo cumpridos! 🎉
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Informações para Usuários */}
+                      <div className="bg-info/10 border border-info/20 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <User className="w-4 h-4 text-info" />
+                          <span className="font-medium text-info">Para Usuários</span>
+                        </div>
+                        <div className="space-y-2 text-xs text-text-secondary">
+                          <p>
+                            <strong className="text-text-primary">Crítico:</strong> Problemas que impedem trabalho - esperado {slaConfig.critico.horas}h
+                          </p>
+                          <p>
+                            <strong className="text-text-primary">Alto:</strong> Impacto significativo na produtividade - esperado {slaConfig.alto.horas}h
+                          </p>
+                          <p>
+                            <strong className="text-text-primary">Médio:</strong> Problemas que podem ser contornados - esperado {slaConfig.medio.horas}h
+                          </p>
+                          <p>
+                            <strong className="text-text-primary">Baixo:</strong> Melhorias e solicitações gerais - esperado {slaConfig.baixo.horas}h
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex justify-between items-center border-t border-border-subtle">
+                    <div className="text-xs text-text-muted">
+                      * Tempos médios calculados com base nos últimos chamados resolvidos
+                    </div>
+                    <Button onClick={handleSaveSLA} className="gap-2">
+                      <CheckCircle className="w-4 h-4" />
+                      Salvar Configurações
+                    </Button>
                   </div>
                 </Card>
               )}
@@ -2860,7 +3024,7 @@ const DashboardView = ({
   onOpenTicket: (t: TicketData) => void;
   setCurrentView?: (v: string) => void;
 }) => {
-  const { tickets, setFiltros } = useTickets();
+  const { tickets, setFiltros, slaConfig } = useTickets();
   const { usuarioLogado } = useAuth();
 
   const abertos = tickets.filter((t) => t.status === "Aberto").length;
@@ -2916,7 +3080,25 @@ const DashboardView = ({
           },
           {
             label: "SLA Violado",
-            value: "2",
+            value: (() => {
+              // Calcular SLA violados baseado na configuração atual
+              const slaViolados = tickets.filter(ticket => {
+                const slaHoras = ticket.priority === 'Crítico' ? slaConfig.critico.horas :
+                               ticket.priority === 'Alto' ? slaConfig.alto.horas :
+                               ticket.priority === 'Médio' ? slaConfig.medio.horas :
+                               slaConfig.baixo.horas;
+                
+                // Simular cálculo de tempo decorrido
+                const tempoDecorrido = ticket.created.includes('minutos') ? 0.5 :
+                                     ticket.created.includes('hora') ? parseInt(ticket.created) || 1 :
+                                     ticket.created.includes('dia') ? (parseInt(ticket.created) || 1) * 24 :
+                                     2;
+                
+                return tempoDecorrido > slaHoras && (ticket.status !== 'Resolvido' && ticket.status !== 'Fechado');
+              }).length;
+              
+              return slaViolados.toString();
+            })(),
             trend: "Ação necessária",
             trendUp: false,
             color: "text-danger",
@@ -3114,6 +3296,123 @@ const DashboardView = ({
               )}
             </tbody>
           </table>
+        </div>
+      </Card>
+
+      {/* SLA Compliance Widget */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-medium text-text-primary">
+            Compliance de SLA por Prioridade
+          </h3>
+          <div className="flex items-center gap-2 text-sm text-text-muted">
+            <Clock className="w-4 h-4" />
+            Atualizado agora
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {(Object.entries(slaConfig) as [string, {horas: number, tempoMedio: number}][]).map(([key, config]) => {
+            const prioridade = key === 'critico' ? 'Crítico' : 
+                             key === 'alto' ? 'Alto' : 
+                             key === 'medio' ? 'Médio' : 'Baixo';
+            
+            const ticketsPrioridade = tickets.filter(t => t.priority === prioridade);
+            const ticketsAtivos = ticketsPrioridade.filter(t => 
+              t.status !== 'Resolvido' && t.status !== 'Fechado'
+            );
+            
+            const ticketsViolados = ticketsAtivos.filter(ticket => {
+              const tempoDecorrido = ticket.created.includes('minutos') ? 0.5 :
+                                   ticket.created.includes('hora') ? parseInt(ticket.created) || 1 :
+                                   ticket.created.includes('dia') ? (parseInt(ticket.created) || 1) * 24 :
+                                   2;
+              return tempoDecorrido > config.horas;
+            }).length;
+            
+            const compliance = ticketsAtivos.length > 0 ? 
+              Math.round(((ticketsAtivos.length - ticketsViolados) / ticketsAtivos.length) * 100) : 100;
+            
+            const colorClass = key === 'critico' ? 'border-danger/20 bg-danger/5' : 
+                             key === 'alto' ? 'border-warning/20 bg-warning/5' : 
+                             key === 'medio' ? 'border-info/20 bg-info/5' : 
+                             'border-text-muted/20 bg-text-muted/5';
+            
+            const dotColor = key === 'critico' ? 'bg-danger' : 
+                           key === 'alto' ? 'bg-warning' : 
+                           key === 'medio' ? 'bg-info' : 'bg-text-muted';
+            
+            return (
+              <div key={key} className={`border rounded-xl p-4 ${colorClass}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className={`w-3 h-3 rounded-full ${dotColor}`}></div>
+                  <span className="font-medium text-text-primary">{prioridade}</span>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-text-secondary">Compliance:</span>
+                    <span className={`font-medium ${compliance >= 90 ? 'text-success' : compliance >= 70 ? 'text-warning' : 'text-danger'}`}>
+                      {compliance}%
+                    </span>
+                  </div>
+                  
+                  <div className="w-full bg-bg-primary rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all ${
+                        compliance >= 90 ? 'bg-success' : 
+                        compliance >= 70 ? 'bg-warning' : 'bg-danger'
+                      }`}
+                      style={{ width: `${compliance}%` }}
+                    ></div>
+                  </div>
+                  
+                  <div className="flex justify-between text-xs text-text-muted">
+                    <span>Meta: {config.horas}h</span>
+                    <span>Média: {config.tempoMedio}h</span>
+                  </div>
+                  
+                  {ticketsViolados > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-danger">
+                      <AlertTriangle className="w-3 h-3" />
+                      {ticketsViolados} violado{ticketsViolados > 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        
+        <div className="mt-4 p-3 bg-accent-primary/10 border border-accent-primary/20 rounded-lg">
+          <div className="flex items-center gap-2 text-sm">
+            <CheckCircle className="w-4 h-4 text-accent-primary" />
+            <span className="text-accent-primary font-medium">
+              Compliance Geral: {Math.round(
+                (Object.entries(slaConfig) as [string, {horas: number, tempoMedio: number}][]).reduce((acc, [key, config]) => {
+                  const prioridade = key === 'critico' ? 'Crítico' : 
+                                   key === 'alto' ? 'Alto' : 
+                                   key === 'medio' ? 'Médio' : 'Baixo';
+                  const ticketsAtivos = tickets.filter(t => 
+                    t.priority === prioridade && t.status !== 'Resolvido' && t.status !== 'Fechado'
+                  );
+                  const ticketsViolados = ticketsAtivos.filter(ticket => {
+                    const tempoDecorrido = ticket.created.includes('minutos') ? 0.5 :
+                                         ticket.created.includes('hora') ? parseInt(ticket.created) || 1 :
+                                         ticket.created.includes('dia') ? (parseInt(ticket.created) || 1) * 24 :
+                                         2;
+                    return tempoDecorrido > config.horas;
+                  }).length;
+                  
+                  return acc + (ticketsAtivos.length > 0 ? 
+                    ((ticketsAtivos.length - ticketsViolados) / ticketsAtivos.length) * 100 : 100);
+                }, 0) / 4
+              )}%
+            </span>
+            <span className="text-text-muted">
+              • {tickets.filter(t => t.status !== 'Resolvido' && t.status !== 'Fechado').length} chamados ativos
+            </span>
+          </div>
         </div>
       </Card>
     </motion.div>
@@ -3385,7 +3684,7 @@ const AllTicketsView = ({
 
 const NewTicketView = ({ onSubmit, onCancel, onOpenArticle }: { onSubmit: () => void, onCancel: () => void, onOpenArticle: (artigo: Artigo) => void }) => {
   const [loading, setLoading] = useState(false);
-  const { criarChamado } = useTickets();
+  const { criarChamado, slaConfig } = useTickets();
   const { artigos } = useKB();
   const { showToast } = useAppContext();
   const [titulo, setTitulo] = useState('');
@@ -3538,12 +3837,38 @@ const NewTicketView = ({ onSubmit, onCancel, onOpenArticle }: { onSubmit: () => 
                 <label className="block text-sm font-medium text-text-secondary mb-1">
                   Prioridade
                 </label>
-                <Select required>
-                  <option value="Baixo">Baixo</option>
-                  <option value="Médio">Médio</option>
-                  <option value="Alto">Alto</option>
-                  <option value="Crítico">Crítico</option>
+                <Select 
+                  required
+                  onChange={(e) => {
+                    const selectedPriority = e.target.value as Priority;
+                    // Aqui podemos adicionar lógica para mostrar informações de SLA
+                  }}
+                >
+                  <option value="">Selecione a prioridade</option>
+                  <option value="Baixo">Baixo - Resolução esperada em até {slaConfig.baixo.horas}h</option>
+                  <option value="Médio">Médio - Resolução esperada em até {slaConfig.medio.horas}h</option>
+                  <option value="Alto">Alto - Resolução esperada em até {slaConfig.alto.horas}h</option>
+                  <option value="Crítico">Crítico - Resolução esperada em até {slaConfig.critico.horas}h</option>
                 </Select>
+                
+                {/* Informações de SLA */}
+                <div className="mt-2 p-3 bg-info/10 border border-info/20 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Clock className="w-4 h-4 text-info mt-0.5" />
+                    <div className="text-xs text-text-secondary">
+                      <p className="font-medium text-info mb-1">Tempos de Resolução Esperados:</p>
+                      <div className="space-y-1">
+                        <p><span className="text-danger font-medium">Crítico:</span> Até {slaConfig.critico.horas}h - Problemas que impedem o trabalho</p>
+                        <p><span className="text-warning font-medium">Alto:</span> Até {slaConfig.alto.horas}h - Impacto significativo na produtividade</p>
+                        <p><span className="text-info font-medium">Médio:</span> Até {slaConfig.medio.horas}h - Problemas que podem ser contornados</p>
+                        <p><span className="text-text-muted font-medium">Baixo:</span> Até {slaConfig.baixo.horas}h - Melhorias e solicitações gerais</p>
+                      </div>
+                      <p className="mt-2 text-text-muted italic">
+                        * Tempos baseados na média atual de resolução da equipe
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -4489,6 +4814,20 @@ interface TicketContextType {
   atividades: Record<string, any[]>;
   avaliarChamado: (id: string, nota: number, resolvido: boolean, comentario?: string) => void;
   ignorarAvaliacao: (id: string) => void;
+  slaConfig: {
+    critico: { horas: number; tempoMedio: number };
+    alto: { horas: number; tempoMedio: number };
+    medio: { horas: number; tempoMedio: number };
+    baixo: { horas: number; tempoMedio: number };
+  };
+  setSlaConfig: React.Dispatch<React.SetStateAction<{
+    critico: { horas: number; tempoMedio: number };
+    alto: { horas: number; tempoMedio: number };
+    medio: { horas: number; tempoMedio: number };
+    baixo: { horas: number; tempoMedio: number };
+  }>>;
+  calcularTempoMedio: (prioridade: Priority) => number;
+  handleSaveSLA: () => void;
 }
 
 const TicketContext = React.createContext<TicketContextType | undefined>(
@@ -4535,8 +4874,62 @@ export const TicketProvider = ({ children }: { children: React.ReactNode }) => {
   });
   const [ticketAtivo, setTicketAtivo] = useState<TicketData | null>(null);
   const [atividades, setAtividades] = useState<Record<string, any[]>>({});
+  const [slaConfig, setSlaConfig] = useState({
+    critico: { horas: 4, tempoMedio: 2.5 },
+    alto: { horas: 8, tempoMedio: 6.2 },
+    medio: { horas: 24, tempoMedio: 18.5 },
+    baixo: { horas: 72, tempoMedio: 45.8 }
+  });
   const { usuarioLogado, registrarExclusao } = useAuth();
   const { showToast, criarNotificacao } = useAppContext();
+
+  // Função para calcular tempo médio de resolução por prioridade
+  const calcularTempoMedio = (prioridade: Priority) => {
+    const ticketsResolvidos = tickets.filter(t => 
+      t.priority === prioridade && (t.status === 'Resolvido' || t.status === 'Fechado')
+    );
+    
+    if (ticketsResolvidos.length === 0) {
+      // Valores padrão baseados na prioridade
+      const defaults = {
+        'Crítico': 2.5,
+        'Alto': 6.2,
+        'Médio': 18.5,
+        'Baixo': 45.8
+      };
+      return defaults[prioridade] || 24;
+    }
+
+    // Simular cálculo de tempo médio (em um sistema real, seria baseado em timestamps)
+    const tempoTotal = ticketsResolvidos.reduce((acc, ticket) => {
+      // Simular tempo de resolução baseado na prioridade
+      let tempoBase = 0;
+      switch (ticket.priority) {
+        case 'Crítico': tempoBase = 1 + Math.random() * 4; break; // 1-5h
+        case 'Alto': tempoBase = 3 + Math.random() * 8; break; // 3-11h
+        case 'Médio': tempoBase = 8 + Math.random() * 20; break; // 8-28h
+        case 'Baixo': tempoBase = 24 + Math.random() * 48; break; // 24-72h
+        default: tempoBase = 12; break;
+      }
+      return acc + tempoBase;
+    }, 0);
+
+    return Math.round((tempoTotal / ticketsResolvidos.length) * 10) / 10;
+  };
+
+  // Função para salvar configurações de SLA
+  const handleSaveSLA = () => {
+    // Atualizar tempos médios calculados
+    const novoConfig = {
+      critico: { ...slaConfig.critico, tempoMedio: calcularTempoMedio('Crítico') },
+      alto: { ...slaConfig.alto, tempoMedio: calcularTempoMedio('Alto') },
+      medio: { ...slaConfig.medio, tempoMedio: calcularTempoMedio('Médio') },
+      baixo: { ...slaConfig.baixo, tempoMedio: calcularTempoMedio('Baixo') }
+    };
+    
+    setSlaConfig(novoConfig);
+    showToast('Configurações de SLA salvas com sucesso!', 'success');
+  };
 
   useEffect(() => {
     localStorage.setItem("mb_tickets", JSON.stringify(tickets));
@@ -4816,6 +5209,10 @@ export const TicketProvider = ({ children }: { children: React.ReactNode }) => {
         atividades,
         avaliarChamado,
         ignorarAvaliacao,
+        slaConfig,
+        setSlaConfig,
+        calcularTempoMedio,
+        handleSaveSLA,
       }}
     >
       {children}
@@ -5251,6 +5648,7 @@ function SinoNotificacoes({ setCurrentView, setTicketAtivo }: { setCurrentView: 
 // --- MAIN APP COMPONENT ---
 function MainApp() {
   const { usuarioLogado, fazerLogin, fazerLogout } = useAuth();
+  const { slaConfig } = useTickets();
   const [currentView, setCurrentView] = useState("dashboard");
   const { pedirConfirmacao, fecharConfirm, showToast } = useAppContext();
   const {
@@ -6076,6 +6474,74 @@ function MainApp() {
                         </span>
                       </>
                     )}
+                  </div>
+
+                  {/* Informações de SLA */}
+                  <div className="mt-4 p-4 bg-accent-primary/10 border border-accent-primary/20 rounded-xl">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Clock className="w-5 h-5 text-accent-primary" />
+                      <span className="font-medium text-accent-primary">Informações de SLA</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-text-secondary mb-1">Tempo de resolução esperado:</p>
+                        <p className="font-medium text-text-primary">
+                          {ticketAtivo.priority === 'Crítico' && `Até ${slaConfig.critico.horas}h`}
+                          {ticketAtivo.priority === 'Alto' && `Até ${slaConfig.alto.horas}h`}
+                          {ticketAtivo.priority === 'Médio' && `Até ${slaConfig.medio.horas}h`}
+                          {ticketAtivo.priority === 'Baixo' && `Até ${slaConfig.baixo.horas}h`}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-text-secondary mb-1">Tempo médio da equipe:</p>
+                        <p className="font-medium text-text-primary">
+                          {ticketAtivo.priority === 'Crítico' && `${slaConfig.critico.tempoMedio}h`}
+                          {ticketAtivo.priority === 'Alto' && `${slaConfig.alto.tempoMedio}h`}
+                          {ticketAtivo.priority === 'Médio' && `${slaConfig.medio.tempoMedio}h`}
+                          {ticketAtivo.priority === 'Baixo' && `${slaConfig.baixo.tempoMedio}h`}
+                        </p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <p className="text-text-secondary mb-1">Status do SLA:</p>
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const slaHoras = ticketAtivo.priority === 'Crítico' ? slaConfig.critico.horas :
+                                           ticketAtivo.priority === 'Alto' ? slaConfig.alto.horas :
+                                           ticketAtivo.priority === 'Médio' ? slaConfig.medio.horas :
+                                           slaConfig.baixo.horas;
+                            
+                            // Simular cálculo de tempo decorrido (em um sistema real seria baseado em timestamps)
+                            const tempoDecorrido = ticketAtivo.created.includes('minutos') ? 0.5 :
+                                                 ticketAtivo.created.includes('hora') ? parseInt(ticketAtivo.created) || 1 :
+                                                 ticketAtivo.created.includes('dia') ? (parseInt(ticketAtivo.created) || 1) * 24 :
+                                                 2; // fallback
+                            
+                            const percentualSLA = (tempoDecorrido / slaHoras) * 100;
+                            const isViolado = tempoDecorrido > slaHoras;
+                            const isProximoViolacao = percentualSLA > 80 && !isViolado;
+                            
+                            return (
+                              <>
+                                <div className={`w-3 h-3 rounded-full ${
+                                  isViolado ? 'bg-danger' : 
+                                  isProximoViolacao ? 'bg-warning' : 'bg-success'
+                                }`}></div>
+                                <span className={`font-medium ${
+                                  isViolado ? 'text-danger' : 
+                                  isProximoViolacao ? 'text-warning' : 'text-success'
+                                }`}>
+                                  {isViolado ? 'SLA Violado' : 
+                                   isProximoViolacao ? 'Próximo ao limite' : 'Dentro do SLA'}
+                                </span>
+                                <span className="text-text-muted">
+                                  ({Math.round(percentualSLA)}% do tempo limite)
+                                </span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

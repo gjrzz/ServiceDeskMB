@@ -134,3 +134,53 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent-hover);
 }
+
+/* SLA Configuration specific styles */
+.sla-config-card {
+  background: rgba(0, 0, 0, 0.4) !important;
+  backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(139, 92, 246, 0.2) !important;
+  border-radius: 12px !important;
+}
+
+[data-tema="claro"] .sla-config-card {
+  background: rgba(255, 255, 255, 0.3) !important;
+  backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(109, 40, 217, 0.2) !important;
+}
+
+/* SLA Progress bars */
+.sla-progress-bar {
+  background: rgba(0, 0, 0, 0.3) !important;
+  border-radius: 4px !important;
+}
+
+[data-tema="claro"] .sla-progress-bar {
+  background: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* SLA Info panels */
+.sla-info-panel {
+  background: rgba(139, 92, 246, 0.1) !important;
+  border: 1px solid rgba(139, 92, 246, 0.2) !important;
+  backdrop-filter: blur(6px) !important;
+  border-radius: 12px !important;
+}
+
+[data-tema="claro"] .sla-info-panel {
+  background: rgba(109, 40, 217, 0.08) !important;
+  border: 1px solid rgba(109, 40, 217, 0.15) !important;
+}
+
+/* SLA compliance indicators */
+.sla-compliance-good {
+  color: var(--success) !important;
+}
+
+.sla-compliance-warning {
+  color: var(--warning) !important;
+}
+
+.sla-compliance-danger {
+  color: var(--danger) !important;
+}
