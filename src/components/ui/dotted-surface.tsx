@@ -1,14 +1,13 @@
 'use client';
 import { cn } from '../../lib/utils';
-import { useTheme } from 'next-themes';
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
-type DottedSurfaceProps = Omit<React.ComponentProps<'div'>, 'ref'>;
+interface DottedSurfaceProps extends Omit<React.ComponentProps<'div'>, 'ref'> {
+  theme?: 'claro' | 'escuro';
+}
 
-export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
-	const { theme } = useTheme();
-
+export function DottedSurface({ className, theme = 'claro', ...props }: DottedSurfaceProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const sceneRef = useRef<{
 		scene: THREE.Scene;
@@ -22,21 +21,22 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
 	useEffect(() => {
 		if (!containerRef.current) return;
 
-		const SEPARATION = 150;
-		const AMOUNTX = 40;
-		const AMOUNTY = 60;
+		const SEPARATION = 100;
+		const AMOUNTX = 50;
+		const AMOUNTY = 30;
 
 		// Scene setup
 		const scene = new THREE.Scene();
-		scene.fog = new THREE.Fog(0xffffff, 2000, 10000);
+		scene.fog = new THREE.Fog(theme === 'claro' ? 0xffffff : 0x000000, 2000, 10000);
 
 		const camera = new THREE.PerspectiveCamera(
-			60,
+			75,
 			window.innerWidth / window.innerHeight,
 			1,
 			10000,
 		);
-		camera.position.set(0, 355, 1220);
+		// Posição da câmera mais próxima e centralizada
+		camera.position.set(0, 200, 800);
 
 		const renderer = new THREE.WebGLRenderer({
 			alpha: true,
@@ -44,7 +44,17 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
 		});
 		renderer.setPixelRatio(window.devicePixelRatio);
 		renderer.setSize(window.innerWidth, window.innerHeight);
-		renderer.setClearColor(scene.fog.color, 0);
+		renderer.setClearColor(scene.fog.color, theme === 'claro' ? 1 : 0);
+		
+		// Configurar canvas para ser fixo
+		const canvas = renderer.domElement;
+		canvas.style.position = 'fixed';
+		canvas.style.top = '0';
+		canvas.style.left = '0';
+		canvas.style.width = '100vw';
+		canvas.style.height = '100vh';
+		canvas.style.objectFit = 'cover';
+		canvas.style.zIndex = '-10';
 
 		containerRef.current.appendChild(renderer.domElement);
 
@@ -63,10 +73,11 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
 				const z = iy * SEPARATION - (AMOUNTY * SEPARATION) / 2;
 
 				positions.push(x, y, z);
-				if (theme === 'dark') {
+				if (theme === 'escuro') {
 					colors.push(200, 200, 200);
 				} else {
-					colors.push(0, 0, 0);
+					// Roxo escuro bem definido para tema claro
+					colors.push(0.2, 0.0, 0.3); // Valores normalizados (0-1) para roxo escuro
 				}
 			}
 		}
@@ -79,11 +90,11 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
 
 		// Create material
 		const material = new THREE.PointsMaterial({
-			size: 8,
+			size: theme === 'claro' ? 4 : 6, // Pontos mais finos
 			vertexColors: true,
 			transparent: true,
-			opacity: 0.8,
-			sizeAttenuation: true,
+			opacity: theme === 'claro' ? 0.9 : 0.8,
+			sizeAttenuation: false,
 		});
 
 		// Create points object
@@ -105,10 +116,11 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
 				for (let iy = 0; iy < AMOUNTY; iy++) {
 					const index = i * 3;
 
-					// Animate Y position with sine waves
+					// Animate Y position with sine waves - movimento mais sutil
 					positions[index + 1] =
-						Math.sin((ix + count) * 0.3) * 50 +
-						Math.sin((iy + count) * 0.5) * 50;
+						Math.sin((ix + count) * 0.15) * 30 +
+						Math.sin((iy + count) * 0.2) * 25 +
+						Math.cos((ix + iy + count) * 0.08) * 20;
 
 					i++;
 				}
@@ -116,24 +128,25 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
 
 			positionAttribute.needsUpdate = true;
 
-			// Update point sizes based on wave
-			const customMaterial = material as THREE.PointsMaterial & {
-				uniforms?: any;
-			};
-			if (!customMaterial.uniforms) {
-				// For dynamic size changes, we'd need a custom shader
-				// For now, keeping constant size for performance
-			}
-
 			renderer.render(scene, camera);
-			count += 0.1;
+			count += 0.08; // Animação mais sutil
 		};
 
-		// Handle window resize
+		// Handle window resize - mantém tamanho fixo
 		const handleResize = () => {
-			camera.aspect = window.innerWidth / window.innerHeight;
+			// Usar tamanho fixo baseado no viewport inicial
+			const fixedWidth = 1920;
+			const fixedHeight = 1080;
+			
+			camera.aspect = fixedWidth / fixedHeight;
 			camera.updateProjectionMatrix();
 			renderer.setSize(window.innerWidth, window.innerHeight);
+			
+			// Ajustar escala do canvas para manter proporção
+			const canvas = renderer.domElement;
+			canvas.style.width = '100vw';
+			canvas.style.height = '100vh';
+			canvas.style.objectFit = 'cover';
 		};
 
 		window.addEventListener('resize', handleResize);
@@ -184,7 +197,15 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
 	return (
 		<div
 			ref={containerRef}
-			className={cn('pointer-events-none fixed inset-0 -z-1', className)}
+			className={cn('pointer-events-none fixed inset-0 -z-10', className)}
+			style={{
+				width: '100vw',
+				height: '100vh',
+				overflow: 'hidden',
+				position: 'fixed',
+				top: 0,
+				left: 0,
+			}}
 			{...props}
 		/>
 	);

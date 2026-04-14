@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+@keyframes moveBackground {
+  from {
+    background-position: 0% 0%;
+  }
+  to {
+    background-position: 0% -1000%;
+  }
+}
+
 @theme {
   --color-bg-primary: var(--bg-primary);
   --color-bg-surface: var(--bg-surface);
@@ -26,25 +35,25 @@
 }
 
 :root, [data-tema="escuro"] {
-  --bg-primary: #0d0b14;
-  --bg-surface: #16121f;
-  --bg-elevated: #1e1830;
-  --bg-sidebar: #110e1a;
-  --bg-input: #1a1528;
-  --bg-hover: rgba(139, 92, 246, 0.08);
+  --bg-primary: transparent;
+  --bg-surface: rgba(0, 0, 0, 0.3);
+  --bg-elevated: rgba(0, 0, 0, 0.4);
+  --bg-sidebar: rgba(0, 0, 0, 0.25);
+  --bg-input: rgba(0, 0, 0, 0.35);
+  --bg-hover: rgba(139, 92, 246, 0.15);
 
   --accent: #8B5CF6;
   --accent-hover: #a78bfa;
   --accent-glow: rgba(139, 92, 246, 0.35);
   --accent-subtle: rgba(139, 92, 246, 0.12);
 
-  --text-primary: #f0ecff;
-  --text-secondary: #9d93b8;
-  --text-muted: #5c5478;
+  --text-primary: #ffffff;
+  --text-secondary: #e5e7eb;
+  --text-muted: #9ca3af;
 
-  --border: rgba(139, 92, 246, 0.15);
-  --border-hover: rgba(139, 92, 246, 0.4);
-  --border-input: rgba(139, 92, 246, 0.25);
+  --border: rgba(255, 255, 255, 0.2);
+  --border-hover: rgba(255, 255, 255, 0.3);
+  --border-input: rgba(255, 255, 255, 0.25);
 
   --shadow: rgba(0, 0, 0, 0.4);
   --overlay: rgba(0, 0, 0, 0.7);
@@ -64,28 +73,28 @@
 }
 
 [data-tema="claro"] {
-  --bg-primary: #f5f3ff;
-  --bg-surface: #ffffff;
-  --bg-elevated: #ede9fe;
-  --bg-sidebar: #faf9ff;
-  --bg-input: #ffffff;
-  --bg-hover: rgba(109, 40, 217, 0.06);
+  --bg-primary: transparent;
+  --bg-surface: rgba(255, 255, 255, 0.35);
+  --bg-elevated: rgba(255, 255, 255, 0.4);
+  --bg-sidebar: rgba(255, 255, 255, 0.3);
+  --bg-input: rgba(255, 255, 255, 0.35);
+  --bg-hover: rgba(75, 0, 130, 0.06);
 
-  --accent: #7C3AED;
-  --accent-hover: #6D28D9;
-  --accent-glow: rgba(124, 58, 237, 0.25);
-  --accent-subtle: rgba(124, 58, 237, 0.08);
+  --accent: #4B0082;
+  --accent-hover: #6A0DAD;
+  --accent-glow: rgba(75, 0, 130, 0.2);
+  --accent-subtle: rgba(75, 0, 130, 0.04);
 
-  --text-primary: #1e1333;
-  --text-secondary: #6b5c8a;
-  --text-muted: #a394c0;
+  --text-primary: #1a1a1a;
+  --text-secondary: #2d2d2d;
+  --text-muted: #555555;
 
-  --border: rgba(109, 40, 217, 0.15);
-  --border-hover: rgba(109, 40, 217, 0.4);
-  --border-input: rgba(109, 40, 217, 0.3);
+  --border: rgba(255, 255, 255, 0.15);
+  --border-hover: rgba(255, 255, 255, 0.25);
+  --border-input: rgba(255, 255, 255, 0.2);
 
-  --shadow: rgba(109, 40, 217, 0.12);
-  --overlay: rgba(15, 10, 30, 0.5);
+  --shadow: rgba(75, 0, 130, 0.08);
+  --overlay: rgba(255, 255, 255, 0.5);
 
   --success: #059669;
   --success-bg: rgba(5, 150, 105, 0.08);
@@ -97,7 +106,7 @@
   --info-bg: rgba(79, 70, 229, 0.08);
 
   --particle-color: 0x7C3AED;
-  --particle-opacity: 0.35;
+  --particle-opacity: 0.4;
   --bg-canvas: #f5f3ff;
 }
 
@@ -106,12 +115,140 @@
 }
 
 body {
-  background-color: var(--bg-primary);
-  background-image: radial-gradient(ellipse at 30% 40%, var(--accent-subtle) 0%, transparent 60%);
-  background-attachment: fixed;
+  background-color: transparent;
   color: var(--text-primary);
   scrollbar-width: thin;
   scrollbar-color: var(--accent-glow) transparent;
+}
+
+/* Global Glass Effect Classes */
+.glass-effect {
+  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 12px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.glass-card {
+  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.glass-input {
+  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 12px;
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.1),
+    0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.glass-button {
+  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  box-shadow: 
+    0 6px 24px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 2.2);
+}
+
+.glass-button:hover {
+  background: rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.glass-sidebar {
+  backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.6);
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0px 12px 12px 0px;
+  box-shadow: 
+    4px 0 24px rgba(0, 0, 0, 0.1),
+    inset -1px 0 0 rgba(255, 255, 255, 0.15);
+}
+
+.glass-modal {
+  backdrop-filter: blur(12px);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* Light theme overrides - Máxima transparência */
+[data-tema="claro"] .glass-effect {
+  background: rgba(255, 255, 255, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 
+    0 8px 32px rgba(75, 0, 130, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+}
+
+[data-tema="claro"] .glass-card {
+  background: rgba(255, 255, 255, 0.4) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 
+    0 12px 40px rgba(75, 0, 130, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+[data-tema="claro"] .glass-input {
+  background: rgba(255, 255, 255, 0.4) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 
+    inset 0 2px 4px rgba(75, 0, 130, 0.06),
+    0 4px 16px rgba(75, 0, 130, 0.04) !important;
+}
+
+[data-tema="claro"] .glass-button {
+  background: rgba(255, 255, 255, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 
+    0 6px 24px rgba(75, 0, 130, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+}
+
+[data-tema="claro"] .glass-button:hover {
+  background: rgba(255, 255, 255, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 
+    0 8px 32px rgba(75, 0, 130, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+}
+
+[data-tema="claro"] .glass-sidebar {
+  background: rgba(255, 255, 255, 0.4) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 
+    4px 0 24px rgba(75, 0, 130, 0.06),
+    inset -1px 0 0 rgba(255, 255, 255, 0.4) !important;
+}
+
+[data-tema="claro"] .glass-modal {
+  background: rgba(255, 255, 255, 0.5) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 
+    0 20px 60px rgba(75, 0, 130, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
 }
 
 ::selection {
@@ -133,4 +270,84 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent-hover);
+}
+/* Sobrescreve TODOS os estilos inline para tema claro */
+[data-tema="claro"] *[style*="background: rgba(0, 0, 0"] {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+[data-tema="claro"] .glass-card[style*="background"] {
+  background: rgba(255, 255, 255, 0.4) !important;
+}
+
+[data-tema="claro"] .glass-effect[style*="background"] {
+  background: rgba(255, 255, 255, 0.35) !important;
+}
+
+[data-tema="claro"] .glass-input[style*="background"] {
+  background: rgba(255, 255, 255, 0.4) !important;
+}
+
+[data-tema="claro"] .glass-button[style*="background"] {
+  background: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Força transparência em elementos específicos */
+[data-tema="claro"] thead[style*="background"] {
+  background: rgba(255, 255, 255, 0.25) !important;
+}
+
+[data-tema="claro"] header[style*="background"] {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+/* Regra mais abrangente para tema claro */
+[data-tema="claro"] div[style*="rgba(0, 0, 0"],
+[data-tema="claro"] thead[style*="rgba(0, 0, 0"],
+[data-tema="claro"] header[style*="rgba(0, 0, 0"],
+[data-tema="claro"] .glass-card[style],
+[data-tema="claro"] .glass-effect[style],
+[data-tema="claro"] .glass-input[style],
+[data-tema="claro"] .glass-button[style] {
+  background: rgba(255, 255, 255, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+/* Botões primary no tema claro */
+[data-tema="claro"] button[style*="rgba(139, 92, 246, 0.4)"] {
+  background: rgba(75, 0, 130, 0.85) !important;
+  border: 2px solid rgba(75, 0, 130, 0.9) !important;
+  color: white !important;
+  box-shadow: 
+    0 6px 24px rgba(75, 0, 130, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+[data-tema="claro"] button[style*="rgba(139, 92, 246, 0.4)"]:hover {
+  background: rgba(75, 0, 130, 0.95) !important;
+  border-color: rgba(75, 0, 130, 1) !important;
+  box-shadow: 
+    0 8px 32px rgba(75, 0, 130, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-2px) !important;
+}
+/* Regra específica para botão de login */
+[data-tema="claro"] button.glass-button[style*="background: rgba(139, 92, 246, 0.4)"] {
+  background: rgba(75, 0, 130, 0.9) !important;
+  border: 2px solid rgba(75, 0, 130, 1) !important;
+  color: white !important;
+  font-weight: 600 !important;
+  box-shadow: 
+    0 0 20px rgba(75, 0, 130, 0.4),
+    0 8px 32px rgba(75, 0, 130, 0.2) !important;
+}
+
+[data-tema="claro"] button.glass-button[style*="background: rgba(139, 92, 246, 0.4)"]:hover {
+  background: rgba(75, 0, 130, 1) !important;
+  box-shadow: 
+    0 0 25px rgba(75, 0, 130, 0.5),
+    0 10px 40px rgba(75, 0, 130, 0.3) !important;
+  transform: translateY(-2px) !important;
+}
+
+[data-tema="claro"] button.glass-button[style*="background: rgba(139, 92, 246, 0.4)"]:active {
+  transform: translateY(0) !important;
 }

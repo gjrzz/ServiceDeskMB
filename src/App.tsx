@@ -2,6 +2,9 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import ReactDOM from "react-dom";
 import * as THREE from "three";
 import { motion, AnimatePresence } from "motion/react";
+import ShaderBackground from "./components/ui/shader-background";
+import { DottedSurface } from "./components/ui/dotted-surface";
+import { GlassFilter } from "./components/ui/liquid-glass";
 import {
   BarChart,
   Bar,
@@ -157,6 +160,8 @@ const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-tema', tema);
+    // Força re-aplicação do tema
+    document.body.className = `tema-${tema}`;
   }, [tema]);
 
   return (
@@ -661,11 +666,19 @@ const AttachmentViewer = ({ attachment, onDownload }: { attachment: Attachment, 
   return (
     <>
       <div 
-        className="flex items-center justify-between p-3 bg-bg-surface border border-border-subtle rounded-xl hover:border-accent-primary/50 transition-colors group cursor-pointer"
+        className="glass-card flex items-center justify-between p-3 border border-border-subtle rounded-xl hover:border-accent-primary/50 transition-colors group cursor-pointer"
+        style={{
+          background: 'rgba(0, 0, 0, 0.3)',
+          backdropFilter: 'blur(6px)',
+        }}
         onClick={() => isImage ? setShowPreview(true) : onDownload()}
       >
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="w-8 h-8 rounded-lg bg-accent-primary/10 flex items-center justify-center text-accent-primary">
+          <div className="glass-effect w-8 h-8 rounded-xl flex items-center justify-center text-accent-primary"
+            style={{
+              background: 'rgba(139, 92, 246, 0.2)',
+              backdropFilter: 'blur(6px)',
+            }}>
             <span className="text-sm">{fileIcon}</span>
           </div>
           <div className="flex flex-col min-w-0">
@@ -706,14 +719,24 @@ const AttachmentViewer = ({ attachment, onDownload }: { attachment: Attachment, 
       <AnimatePresence>
         {showPreview && isImage && (
           <div 
-            className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            className="fixed inset-0 z-[3000] flex items-center justify-center p-4 backdrop-blur-sm"
+            style={{
+              background: 'rgba(0, 0, 0, 0.6)',
+              backdropFilter: 'blur(10px)',
+            }}
             onClick={() => setShowPreview(false)}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              className="relative max-w-4xl max-h-[90vh] bg-bg-surface rounded-2xl overflow-hidden shadow-2xl"
+              className="glass-modal relative max-w-4xl max-h-[90vh] rounded-xl overflow-hidden"
+              style={{
+                backdropFilter: 'blur(20px)',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-4 border-b border-border-subtle">
@@ -732,17 +755,25 @@ const AttachmentViewer = ({ attachment, onDownload }: { attachment: Attachment, 
                   </Button>
                   <button
                     onClick={() => setShowPreview(false)}
-                    className="p-2 text-text-muted hover:text-text-primary hover:bg-white/5 rounded-lg transition-colors"
+                    className="glass-button p-2 text-text-muted hover:text-text-primary rounded-xl transition-colors"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      backdropFilter: 'blur(6px)',
+                    }}
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
               </div>
-              <div className="p-4 flex items-center justify-center bg-bg-primary/50">
+              <div className="glass-card p-4 flex items-center justify-center"
+                style={{
+                  background: 'rgba(0, 0, 0, 0.25)',
+                  backdropFilter: 'blur(8px)',
+                }}>
                 <img
                   src={attachment.url || generateFileUrl(attachment)}
                   alt={attachment.name}
-                  className="max-w-full max-h-[70vh] object-contain rounded-lg"
+                  className="max-w-full max-h-[70vh] object-contain rounded-xl"
                   onError={(e) => {
                     // Fallback se a imagem não carregar
                     (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMzMzIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNjY2IiBmb250LXNpemU9IjE0Ij5JbWFnZW0gbsOjbyBlbmNvbnRyYWRhPC90ZXh0Pgo8L3N2Zz4=';
@@ -784,10 +815,18 @@ const AvaliacaoTicket = ({
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-gradient-to-r from-accent-primary/10 to-info/10 border border-accent-primary/30 rounded-xl p-6 mb-6"
+      className="glass-card bg-gradient-to-r border border-accent-primary/30 rounded-xl p-6 mb-6"
+      style={{
+        background: 'linear-gradient(to right, rgba(139, 92, 246, 0.15), rgba(129, 140, 248, 0.15))',
+        backdropFilter: 'blur(8px)',
+      }}
     >
       <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-full bg-accent-primary/20 flex items-center justify-center shrink-0">
+        <div className="glass-effect w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+          style={{
+            background: 'rgba(139, 92, 246, 0.3)',
+            backdropFilter: 'blur(6px)',
+          }}>
           <Star className="w-6 h-6 text-accent-primary" />
         </div>
         <div className="flex-1">
@@ -806,22 +845,34 @@ const AvaliacaoTicket = ({
             <div className="flex gap-3">
               <button
                 onClick={() => setResolvido(true)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
+                className={`glass-button flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${
                   resolvido === true
-                    ? 'bg-success/20 border-success text-success'
-                    : 'bg-white/5 border-border-subtle text-text-secondary hover:bg-white/10'
+                    ? 'border-success text-success'
+                    : 'border-border-subtle text-text-secondary'
                 }`}
+                style={{
+                  background: resolvido === true 
+                    ? 'rgba(52, 211, 153, 0.2)' 
+                    : 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(6px)',
+                }}
               >
                 <ThumbsUp className="w-4 h-4" />
                 Sim
               </button>
               <button
                 onClick={() => setResolvido(false)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
+                className={`glass-button flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${
                   resolvido === false
-                    ? 'bg-danger/20 border-danger text-danger'
-                    : 'bg-white/5 border-border-subtle text-text-secondary hover:bg-white/10'
+                    ? 'border-danger text-danger'
+                    : 'border-border-subtle text-text-secondary'
                 }`}
+                style={{
+                  background: resolvido === false 
+                    ? 'rgba(248, 113, 113, 0.2)' 
+                    : 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(6px)',
+                }}
               >
                 <ThumbsDown className="w-4 h-4" />
                 Não
@@ -881,7 +932,11 @@ const AvaliacaoTicket = ({
                 value={comentario}
                 onChange={(e) => setComentario(e.target.value)}
                 placeholder="Conte-nos mais sobre sua experiência..."
-                className="w-full bg-bg-primary border border-border-subtle rounded-lg px-4 py-2 text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary/50 transition-all resize-none"
+                className="glass-input w-full border border-border-subtle rounded-xl px-4 py-2 text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary/50 transition-all resize-none"
+                style={{
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  backdropFilter: 'blur(6px)',
+                }}
                 rows={3}
               />
             </div>
@@ -925,7 +980,11 @@ function Timeline({ historico, ticketAtivo }: { historico: any[], ticketAtivo: a
     return (
       <div className="relative pl-6 border-l-2 border-border-subtle space-y-8">
         <div className="relative">
-          <div className="absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-bg-surface border-2 border-border-subtle"></div>
+          <div className="glass-effect absolute -left-[31px] top-1 w-4 h-4 rounded-full border-2 border-border-subtle"
+            style={{
+              background: 'rgba(0, 0, 0, 0.4)',
+              backdropFilter: 'blur(4px)',
+            }}></div>
           <p className="text-sm text-text-secondary">
             <span className="font-medium text-text-primary">
               {ticketAtivo.requester}
@@ -958,7 +1017,11 @@ function Timeline({ historico, ticketAtivo }: { historico: any[], ticketAtivo: a
         
         return (
           <div key={entrada.id || idx} className="relative">
-            <div className="absolute -left-[35px] top-1 w-6 h-6 rounded-full bg-bg-surface border border-border-subtle flex items-center justify-center">
+            <div className="glass-effect absolute -left-[35px] top-1 w-6 h-6 rounded-full border border-border-subtle flex items-center justify-center"
+              style={{
+                background: 'rgba(0, 0, 0, 0.4)',
+                backdropFilter: 'blur(4px)',
+              }}>
               {icone}
             </div>
             
@@ -971,14 +1034,23 @@ function Timeline({ historico, ticketAtivo }: { historico: any[], ticketAtivo: a
               </span>
             </div>
             
-            <div className="text-sm text-text-secondary bg-bg-elevated/30 p-3 rounded-lg border border-border-subtle" style={{ wordBreak: 'break-word' }}>
+            <div className="glass-effect text-sm text-text-secondary p-3 rounded-xl border border-border-subtle" 
+              style={{ 
+                wordBreak: 'break-word',
+                background: 'rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(6px)',
+              }}>
               {entrada.text}
             </div>
           </div>
         );
       })}
       <div className="relative">
-        <div className="absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-bg-surface border-2 border-border-subtle"></div>
+        <div className="glass-effect absolute -left-[31px] top-1 w-4 h-4 rounded-full border-2 border-border-subtle"
+          style={{
+            background: 'rgba(0, 0, 0, 0.4)',
+            backdropFilter: 'blur(4px)',
+          }}></div>
         <p className="text-sm text-text-secondary">
           <span className="font-medium text-text-primary">
             {ticketAtivo.requester}
@@ -1039,16 +1111,33 @@ const ConfirmDialog = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={handleCancelar}>
+    <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 backdrop-blur-sm" 
+      style={{
+        background: 'rgba(0, 0, 0, 0.5)',
+        backdropFilter: 'blur(10px)',
+      }}
+      onClick={handleCancelar}>
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-bg-surface border border-border-subtle rounded-2xl max-w-md w-full p-6 shadow-2xl"
+        className="glass-modal border border-border-subtle rounded-xl max-w-md w-full p-6"
+        style={{
+          backdropFilter: 'blur(20px)',
+          background: 'rgba(255, 255, 255, 0.08)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-4 mb-4">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${confirmDialog.tipo === 'perigo' ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning'}`}>
+          <div className={`glass-effect w-12 h-12 rounded-full flex items-center justify-center ${confirmDialog.tipo === 'perigo' ? 'text-danger' : 'text-warning'}`}
+            style={{
+              background: confirmDialog.tipo === 'perigo' 
+                ? 'rgba(248, 113, 113, 0.2)' 
+                : 'rgba(251, 191, 36, 0.2)',
+              backdropFilter: 'blur(6px)',
+            }}>
             <AlertCircle className="w-6 h-6" />
           </div>
           <h3 className="text-xl font-bold text-text-primary">{confirmDialog.titulo}</h3>
@@ -1057,7 +1146,11 @@ const ConfirmDialog = () => {
         <p className="text-text-secondary mb-4">{confirmDialog.mensagem}</p>
 
         {confirmDialog.mensagemExtra && (
-          <div className="bg-warning/5 border border-warning/20 rounded-lg p-3 mb-6">
+          <div className="glass-effect border border-warning/20 rounded-xl p-3 mb-6"
+            style={{
+              background: 'rgba(251, 191, 36, 0.1)',
+              backdropFilter: 'blur(6px)',
+            }}>
             <p className="text-sm text-warning flex gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               {confirmDialog.mensagemExtra}
@@ -1072,7 +1165,7 @@ const ConfirmDialog = () => {
           <button
             onClick={handleConfirmar}
             disabled={carregando}
-            className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${
               confirmDialog.tipo === 'perigo'
                 ? 'bg-danger text-white hover:bg-danger/90'
                 : 'bg-warning text-black hover:bg-warning/90'
@@ -1111,7 +1204,7 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
 }, ref) => (
   <div
     ref={ref}
-    className={`bg-bg-surface border border-border-subtle rounded-xl overflow-hidden backdrop-blur-md ${className}`}
+    className={`glass-card ${className}`}
     {...props}
   >
     {children}
@@ -1126,19 +1219,48 @@ const Button = ({
   ...props
 }: any) => {
   const baseStyle =
-    "inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-bg-primary cursor-pointer";
-  const variants = {
-    primary:
-      "bg-accent-primary text-white hover:bg-accent-secondary focus:ring-accent-primary shadow-[0_0_15px_var(--color-accent-glow)]",
-    secondary:
-      "bg-white/5 text-text-primary hover:bg-white/10 focus:ring-white/20 border border-border-subtle",
-    danger:
-      "bg-danger/20 text-danger hover:bg-danger/30 focus:ring-danger border border-danger/30",
-    ghost: "text-text-secondary hover:text-text-primary hover:bg-white/5",
+    "glass-button inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 cursor-pointer";
+  
+  const getVariantStyle = () => {
+    switch (variant) {
+      case "primary":
+        return {
+          background: "rgba(139, 92, 246, 0.4)",
+          border: "1px solid rgba(139, 92, 246, 0.6)",
+          color: "white",
+          boxShadow: "0 0 20px rgba(139, 92, 246, 0.3), 0 8px 32px rgba(0, 0, 0, 0.15)",
+        };
+      case "secondary":
+        return {
+          background: "rgba(255, 255, 255, 0.15)",
+          border: "1px solid rgba(255, 255, 255, 0.25)",
+          color: "var(--text-primary)",
+        };
+      case "danger":
+        return {
+          background: "rgba(248, 113, 113, 0.25)",
+          border: "1px solid rgba(248, 113, 113, 0.4)",
+          color: "rgb(248, 113, 113)",
+        };
+      case "ghost":
+        return {
+          background: "transparent",
+          border: "none",
+          color: "var(--text-secondary)",
+        };
+      default:
+        return {};
+    }
   };
+
   return (
     <button
-      className={`${baseStyle} ${variants[variant as keyof typeof variants]} ${className}`}
+      className={`${baseStyle} ${className}`}
+      style={{
+        backdropFilter: 'blur(8px)',
+        borderRadius: '18px',
+        ...getVariantStyle(),
+      }}
       {...props}
     >
       {children}
@@ -1148,14 +1270,14 @@ const Button = ({
 
 const Input = ({ className = "", ...props }: any) => (
   <input
-    className={`w-full bg-bg-primary border border-border-subtle rounded-lg px-4 py-2 text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary/50 transition-all ${className}`}
+    className={`glass-input w-full rounded-xl px-4 py-2 text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-primary/50 transition-all ${className}`}
     {...props}
   />
 );
 
 const Select = ({ className = "", children, ...props }: any) => (
   <select
-    className={`w-full bg-bg-primary border border-border-subtle rounded-lg px-4 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary/50 transition-all appearance-none cursor-pointer ${className}`}
+    className={`glass-input w-full rounded-xl px-4 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/50 transition-all appearance-none cursor-pointer ${className}`}
     {...props}
   >
     {children}
@@ -1166,7 +1288,11 @@ const AcessoNegado = () => {
   const { usuarioLogado } = useAuth();
   return (
     <div className="flex flex-col items-center justify-center h-full text-center">
-      <div className="w-20 h-20 bg-danger/10 rounded-full flex items-center justify-center mb-6">
+      <div className="glass-card w-20 h-20 rounded-full flex items-center justify-center mb-6"
+        style={{
+          background: 'rgba(248, 113, 113, 0.2)',
+          backdropFilter: 'blur(8px)',
+        }}>
         <Lock className="w-10 h-10 text-danger" />
       </div>
       <h2 className="text-2xl font-bold text-text-primary mb-2">
@@ -1297,7 +1423,11 @@ const UsuariosView = () => {
       <Card className="p-0 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-black/20 text-text-secondary">
+            <thead className="glass-effect text-text-secondary"
+              style={{
+                background: 'rgba(0, 0, 0, 0.3)',
+                backdropFilter: 'blur(6px)',
+              }}>
               <tr>
                 <th className="px-6 py-3 font-medium">Usuário</th>
                 <th className="px-6 py-3 font-medium">E-mail</th>
@@ -1309,11 +1439,20 @@ const UsuariosView = () => {
             </thead>
             <tbody className="divide-y divide-border-subtle">
               {usuarios.map((u) => (
-                <tr key={u.id} className="hover:bg-white/5 transition-colors">
+                <tr key={u.id} className="glass-effect hover:glass-card transition-colors"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.02)',
+                  }}>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center font-medium text-xs ${u.perfil === "admin" ? "bg-accent-primary/20 text-accent-primary" : "bg-white/10 text-white"}`}
+                        className={`glass-effect w-8 h-8 rounded-full flex items-center justify-center font-medium text-xs ${u.perfil === "admin" ? "text-accent-primary" : "text-white"}`}
+                        style={{
+                          background: u.perfil === "admin" 
+                            ? 'rgba(139, 92, 246, 0.3)' 
+                            : 'rgba(255, 255, 255, 0.2)',
+                          backdropFilter: 'blur(6px)',
+                        }}
                       >
                         {u.avatar}
                       </div>
@@ -1327,9 +1466,15 @@ const UsuariosView = () => {
                     <Badge
                       className={
                         u.perfil === "admin"
-                          ? "bg-accent-primary/20 text-accent-primary"
-                          : "bg-white/10 text-text-secondary"
+                          ? "glass-effect text-accent-primary"
+                          : "glass-effect text-text-secondary"
                       }
+                      style={{
+                        background: u.perfil === "admin" 
+                          ? 'rgba(139, 92, 246, 0.2)' 
+                          : 'rgba(255, 255, 255, 0.1)',
+                        backdropFilter: 'blur(4px)',
+                      }}
                     >
                       {u.perfil === "admin" ? "Admin" : "Usuário"}
                     </Badge>
@@ -1429,7 +1574,12 @@ const UsuariosView = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-bg-surface border border-border-subtle rounded-xl shadow-2xl z-[2000] p-6"
+              className="glass-modal w-full max-w-lg border border-border-subtle rounded-xl shadow-2xl z-[2000] p-6 fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+              style={{
+                backdropFilter: 'blur(15px)',
+                background: 'rgba(0, 0, 0, 0.3)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+              }}
             >
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-text-primary">
@@ -2285,7 +2435,11 @@ const Reports = () => {
           <button 
             onClick={() => setModalRelatorioAberto(true)} 
             title="Configurar e Gerar Relatório"
-            className="p-2.5 bg-accent-primary text-white rounded-lg hover:bg-accent-hover transition-all duration-200 shadow-sm hover:shadow-md active:scale-95 flex items-center justify-center group"
+            className="glass-button p-2.5 text-white rounded-xl hover:bg-accent-hover transition-all duration-200 shadow-sm hover:shadow-md active:scale-95 flex items-center justify-center group"
+            style={{
+              background: 'rgba(139, 92, 246, 0.8)',
+              backdropFilter: 'blur(8px)',
+            }}
           >
             <FileSpreadsheet className="w-6 h-6 group-hover:scale-110 transition-transform" />
           </button>
@@ -2329,9 +2483,10 @@ const Reports = () => {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "var(--color-bg-surface)",
+                    backgroundColor: "rgba(0, 0, 0, 0.4)",
+                    backdropFilter: "blur(8px)",
                     borderColor: "var(--color-border-subtle)",
-                    borderRadius: "8px",
+                    borderRadius: "12px",
                     color: "#fff",
                   }}
                   itemStyle={{ color: "#fff" }}
@@ -2445,7 +2600,11 @@ const Reports = () => {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
                       return (
-                        <div className="bg-bg-surface border border-border-subtle rounded-lg p-3 shadow-lg">
+                        <div className="glass-card border border-border-subtle rounded-xl p-3 shadow-lg"
+                          style={{
+                            background: 'rgba(0, 0, 0, 0.4)',
+                            backdropFilter: 'blur(8px)',
+                          }}>
                           <p className="text-text-primary font-medium mb-2">{label}</p>
                           <p className="text-accent-primary">
                             <span className="font-semibold">{data.time}h</span> tempo médio
@@ -2547,7 +2706,19 @@ const SettingsView = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all text-left ${activeTab === tab.id ? "bg-accent-primary/20 text-accent-primary" : "bg-white/5 text-text-primary hover:bg-white/10"}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left glass-button ${
+                activeTab === tab.id 
+                  ? "bg-accent-primary/20 text-accent-primary" 
+                  : "text-text-primary"
+              }`}
+              style={{
+                backdropFilter: 'blur(8px)',
+                background: activeTab === tab.id 
+                  ? 'rgba(139, 92, 246, 0.25)' 
+                  : 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '20px',
+              }}
             >
               <tab.icon
                 className={`w-5 h-5 ${activeTab === tab.id ? "text-accent-primary" : "text-text-secondary"}`}
@@ -2578,9 +2749,22 @@ const SettingsView = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <button
                         onClick={() => tema !== 'claro' && alternarTema()}
-                        className={`p-4 rounded-xl border-2 transition-all text-left ${tema === 'claro' ? 'border-accent-primary bg-accent-primary/5' : 'border-border-subtle bg-white/5 hover:bg-white/10'}`}
+                        className={`glass-button p-4 rounded-xl border-2 transition-all text-left`}
+                        style={{
+                          background: tema === 'claro' 
+                            ? 'rgba(139, 92, 246, 0.15)' 
+                            : 'rgba(255, 255, 255, 0.08)',
+                          border: tema === 'claro' 
+                            ? '2px solid rgba(139, 92, 246, 0.4)' 
+                            : '2px solid rgba(255, 255, 255, 0.15)',
+                          backdropFilter: 'blur(8px)',
+                        }}
                       >
-                        <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center mb-3">
+                        <div className="glass-effect w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center mb-3"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            backdropFilter: 'blur(6px)',
+                          }}>
                           <Sun className="w-6 h-6 text-orange-500" />
                         </div>
                         <p className="font-medium text-sm text-text-primary">Claro</p>
@@ -2588,9 +2772,18 @@ const SettingsView = () => {
                       </button>
                       <button
                         onClick={() => tema !== 'escuro' && alternarTema()}
-                        className={`p-4 rounded-xl border-2 transition-all text-left ${tema === 'escuro' ? 'border-accent-primary bg-accent-primary/5' : 'border-border-subtle bg-white/5 hover:bg-white/10'}`}
+                        className={`glass-button p-4 rounded-xl border-2 transition-all text-left`}
+                        style={{
+                          background: tema === 'escuro' 
+                            ? 'rgba(139, 92, 246, 0.15)' 
+                            : 'rgba(255, 255, 255, 0.08)',
+                          border: tema === 'escuro' 
+                            ? '2px solid rgba(139, 92, 246, 0.4)' 
+                            : '2px solid rgba(255, 255, 255, 0.15)',
+                          backdropFilter: 'blur(8px)',
+                        }}
                       >
-                        <div className="w-10 h-10 rounded-lg bg-gray-900 border border-gray-800 flex items-center justify-center mb-3">
+                        <div className="w-10 h-10 rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-center mb-3">
                           <Moon className="w-6 h-6 text-accent-primary" />
                         </div>
                         <p className="font-medium text-sm text-text-primary">Escuro</p>
@@ -2819,7 +3012,10 @@ const SettingsView = () => {
                       </tr>
                     ) : (
                       logExclusoes.map((log) => (
-                        <tr key={log.id} className="hover:bg-white/5 transition-colors">
+                        <tr key={log.id} className="glass-effect hover:glass-card transition-colors"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.02)',
+                          }}>
                           <td className="px-4 py-3 text-text-secondary font-mono text-xs">
                             {new Date(log.data).toLocaleString('pt-BR')}
                           </td>
@@ -2932,7 +3128,11 @@ const DashboardView = ({
             className="cursor-pointer"
           >
             <Card className="p-6 relative overflow-hidden group hover:border-accent-primary/50 transition-colors">
-              <div className="absolute -right-6 -top-6 w-24 h-24 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-all"></div>
+              <div className="glass-effect absolute -right-6 -top-6 w-24 h-24 rounded-full blur-2xl group-hover:opacity-80 transition-all"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(4px)',
+                }}></div>
               <p className="text-sm font-medium text-text-secondary">
                 {stat.label}
               </p>
@@ -3034,7 +3234,11 @@ const DashboardView = ({
             {tickets.slice(0, 5).map((ticket, i) => (
               <div key={i} className="flex gap-4">
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-medium text-xs shrink-0 bg-accent-primary`}
+                  className={`glass-effect w-8 h-8 rounded-full flex items-center justify-center text-white font-medium text-xs shrink-0`}
+                  style={{
+                    background: 'rgba(139, 92, 246, 0.8)',
+                    backdropFilter: 'blur(6px)',
+                  }}
                 >
                   {ticket.requester.charAt(0)}
                 </div>
@@ -3067,7 +3271,11 @@ const DashboardView = ({
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-black/20 text-text-secondary">
+            <thead className="glass-effect text-text-secondary"
+              style={{
+                background: 'rgba(0, 0, 0, 0.3)',
+                backdropFilter: 'blur(6px)',
+              }}>
               <tr>
                 <th className="px-6 py-3 font-medium">ID</th>
                 <th className="px-6 py-3 font-medium">Título</th>
@@ -3088,7 +3296,11 @@ const DashboardView = ({
                   <tr
                     key={ticket.id}
                     onClick={() => onOpenTicket(ticket)}
-                    className="hover:bg-white/5 cursor-pointer transition-colors group"
+                    className="glass-effect cursor-pointer transition-colors group"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      backdropFilter: 'blur(5px)',
+                    }}
                   >
                     <td className="px-6 py-4 font-mono text-text-secondary group-hover:text-accent-primary transition-colors">
                       {ticket.id}
@@ -3199,7 +3411,11 @@ const AllTicketsView = ({
                 gerarRelatorio(config, filteredTickets, showToast);
               }}
               title="Exportar para Excel"
-              className="p-2 bg-accent-primary/10 text-accent-primary rounded-lg hover:bg-accent-primary hover:text-white transition-all duration-200 border border-accent-primary/20 flex items-center justify-center group"
+              className="glass-button p-2 text-accent-primary rounded-xl hover:bg-accent-primary hover:text-white transition-all duration-200 border border-accent-primary/20 flex items-center justify-center group"
+              style={{
+                background: 'rgba(139, 92, 246, 0.2)',
+                backdropFilter: 'blur(6px)',
+              }}
             >
               <FileSpreadsheet className="w-5 h-5 group-hover:scale-110 transition-transform" />
             </button>
@@ -3264,13 +3480,21 @@ const AllTicketsView = ({
       <Card className="p-0 overflow-hidden relative">
         <div className="overflow-x-auto">
           <table key={lastUpdate} className="w-full text-left text-sm">
-            <thead className="bg-black/20 text-text-secondary">
+            <thead className="glass-effect text-text-secondary"
+              style={{
+                background: 'rgba(0, 0, 0, 0.3)',
+                backdropFilter: 'blur(6px)',
+              }}>
               <tr>
                 {usuarioLogado?.perfil === 'admin' && !isMyTickets && (
                   <th className="px-6 py-3 w-10">
                     <input 
                       type="checkbox" 
-                      className="rounded border-border-subtle bg-bg-surface text-accent-primary focus:ring-accent-primary"
+                      className="glass-input rounded border-border-subtle text-accent-primary focus:ring-accent-primary"
+                      style={{
+                        background: 'rgba(0, 0, 0, 0.3)',
+                        backdropFilter: 'blur(4px)',
+                      }}
                       checked={selectedTickets.length === filteredTickets.length && filteredTickets.length > 0}
                       onChange={(e) => {
                         if (e.target.checked) setSelectedTickets(filteredTickets.map(t => t.id));
@@ -3300,13 +3524,20 @@ const AllTicketsView = ({
               {filteredTickets.map((ticket) => (
                 <tr
                   key={ticket.id}
-                  className="hover:bg-white/5 cursor-pointer transition-colors group"
+                  className="glass-effect hover:glass-card cursor-pointer transition-colors group"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.02)',
+                  }}
                 >
                   {usuarioLogado?.perfil === 'admin' && !isMyTickets && (
                     <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                       <input 
                         type="checkbox" 
-                        className="rounded border-border-subtle bg-bg-surface text-accent-primary focus:ring-accent-primary"
+                        className="glass-input rounded border-border-subtle text-accent-primary focus:ring-accent-primary"
+                        style={{
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          backdropFilter: 'blur(4px)',
+                        }}
                         checked={selectedTickets.includes(ticket.id)}
                         onChange={(e) => {
                           if (e.target.checked) setSelectedTickets([...selectedTickets, ticket.id]);
@@ -3360,7 +3591,7 @@ const AllTicketsView = ({
                             onConfirmar: () => deletarChamado(ticket.id)
                           });
                         }}
-                        className="p-2 text-text-muted hover:text-danger transition-colors rounded-lg hover:bg-danger/10"
+                        className="p-2 text-text-muted hover:text-danger transition-colors rounded-xl hover:bg-danger/10"
                         title="Excluir Chamado"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -3506,7 +3737,11 @@ const NewTicketView = ({ onSubmit, onCancel, onOpenArticle }: { onSubmit: () => 
               <AnimatePresence>
                 {sugestao && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-3 overflow-hidden">
-                    <div className="bg-accent-primary/10 border border-accent-primary/20 rounded-lg p-3 flex items-start gap-3">
+                    <div className="glass-card border border-accent-primary/20 rounded-xl p-3 flex items-start gap-3"
+                      style={{
+                        background: 'rgba(139, 92, 246, 0.15)',
+                        backdropFilter: 'blur(8px)',
+                      }}>
                       <BookOpen className="w-5 h-5 text-accent-primary shrink-0 mt-0.5" />
                       <div>
                         <p className="text-sm font-medium text-text-primary mb-1">💡 Antes de abrir um chamado, veja se este artigo resolve:</p>
@@ -3552,7 +3787,11 @@ const NewTicketView = ({ onSubmit, onCancel, onOpenArticle }: { onSubmit: () => 
                 Descrição
               </label>
               <textarea
-                className="w-full bg-bg-primary border border-border-subtle rounded-lg px-4 py-2 text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary/50 transition-all min-h-[150px] resize-y"
+                className="glass-input w-full border border-border-subtle rounded-xl px-4 py-2 text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary/50 transition-all min-h-[150px] resize-y"
+                style={{
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  backdropFilter: 'blur(6px)',
+                }}
                 placeholder="Por favor, forneça o máximo de detalhes possível..."
                 required
               ></textarea>
@@ -3570,11 +3809,16 @@ const NewTicketView = ({ onSubmit, onCancel, onOpenArticle }: { onSubmit: () => 
                 onChange={handleFileChange}
               />
               <div 
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer ${
-                  dragActive 
-                    ? "border-accent-primary bg-accent-primary/5" 
-                    : "border-border-subtle hover:bg-white/5"
-                }`}
+                className={`glass-effect border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer`}
+                style={{
+                  background: dragActive 
+                    ? 'rgba(139, 92, 246, 0.15)' 
+                    : 'rgba(255, 255, 255, 0.08)',
+                  border: dragActive 
+                    ? '2px dashed rgba(139, 92, 246, 0.5)' 
+                    : '2px dashed rgba(255, 255, 255, 0.2)',
+                  backdropFilter: 'blur(6px)',
+                }}
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
                 onDragOver={handleDrag}
@@ -3600,10 +3844,14 @@ const NewTicketView = ({ onSubmit, onCancel, onOpenArticle }: { onSubmit: () => 
                     const fileIcon = getFileIcon(file.type, file.name);
                     
                     return (
-                      <div key={index} className="flex items-center justify-between p-3 bg-bg-surface border border-border-subtle rounded-lg group">
+                      <div key={index} className="glass-card flex items-center justify-between p-3 border border-border-subtle rounded-xl group"
+                        style={{
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          backdropFilter: 'blur(6px)',
+                        }}>
                         <div className="flex items-center gap-3 overflow-hidden">
                           {isImage ? (
-                            <div className="w-12 h-12 rounded-lg overflow-hidden bg-bg-primary border border-border-subtle">
+                            <div className="w-12 h-12 rounded-xl overflow-hidden bg-bg-primary border border-border-subtle">
                               <img
                                 src={URL.createObjectURL(file)}
                                 alt={file.name}
@@ -3612,13 +3860,13 @@ const NewTicketView = ({ onSubmit, onCancel, onOpenArticle }: { onSubmit: () => 
                                   // Fallback para ícone se a imagem não carregar
                                   const container = e.currentTarget.parentElement;
                                   if (container) {
-                                    container.innerHTML = `<div class="w-12 h-12 rounded-lg bg-accent-primary/10 flex items-center justify-center text-accent-primary"><span class="text-lg">${fileIcon}</span></div>`;
+                                    container.innerHTML = `<div class="w-12 h-12 rounded-xl bg-accent-primary/10 flex items-center justify-center text-accent-primary"><span class="text-lg">${fileIcon}</span></div>`;
                                   }
                                 }}
                               />
                             </div>
                           ) : (
-                            <div className="w-12 h-12 rounded-lg bg-accent-primary/10 flex items-center justify-center text-accent-primary">
+                            <div className="w-12 h-12 rounded-xl bg-accent-primary/10 flex items-center justify-center text-accent-primary">
                               <span className="text-lg">{fileIcon}</span>
                             </div>
                           )}
@@ -3636,7 +3884,11 @@ const NewTicketView = ({ onSubmit, onCancel, onOpenArticle }: { onSubmit: () => 
                             e.stopPropagation();
                             removerAnexo(index);
                           }}
-                          className="p-1 text-text-muted hover:text-danger hover:bg-danger/10 rounded transition-colors"
+                          className="glass-button p-1 text-text-muted hover:text-danger rounded transition-colors"
+                          style={{
+                            background: 'rgba(248, 113, 113, 0.1)',
+                            backdropFilter: 'blur(4px)',
+                          }}
                           title="Remover arquivo"
                         >
                           <X className="w-4 h-4" />
@@ -3762,7 +4014,11 @@ const ArtigoView = ({ artigo, onBack, onEdit }: { artigo: Artigo, onBack: () => 
           </div>
         </div>
 
-        <Card className="p-8 bg-bg-surface/50">
+        <Card className="glass-card p-8"
+          style={{
+            background: 'rgba(0, 0, 0, 0.25)',
+            backdropFilter: 'blur(8px)',
+          }}>
           <MarkdownRenderer content={artigo.conteudo} />
         </Card>
 
@@ -3770,8 +4026,16 @@ const ArtigoView = ({ artigo, onBack, onEdit }: { artigo: Artigo, onBack: () => 
           {!votou ? (
             <div className="flex items-center gap-4">
               <span className="text-text-primary font-medium">Este artigo foi útil?</span>
-              <button onClick={() => handleVote(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-success/20 hover:text-success transition-colors text-text-secondary"><ThumbsUp className="w-4 h-4" /> Sim</button>
-              <button onClick={() => handleVote(false)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-danger/20 hover:text-danger transition-colors text-text-secondary"><ThumbsDown className="w-4 h-4" /> Não</button>
+              <button onClick={() => handleVote(true)} className="glass-button flex items-center gap-2 px-4 py-2 rounded-xl transition-colors text-text-secondary"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(6px)',
+                }}><ThumbsUp className="w-4 h-4" /> Sim</button>
+              <button onClick={() => handleVote(false)} className="glass-button flex items-center gap-2 px-4 py-2 rounded-xl transition-colors text-text-secondary"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(6px)',
+                }}><ThumbsDown className="w-4 h-4" /> Não</button>
             </div>
           ) : (
             <div className="space-y-4">
@@ -3792,7 +4056,11 @@ const ArtigoView = ({ artigo, onBack, onEdit }: { artigo: Artigo, onBack: () => 
           <h3 className="font-medium text-text-primary mb-4">Tags</h3>
           <div className="flex flex-wrap gap-2">
             {artigo.tags.map(tag => (
-              <Badge key={tag} className="bg-white/5 text-text-secondary hover:bg-accent-primary/20 hover:text-accent-primary cursor-pointer transition-colors">#{tag}</Badge>
+              <Badge key={tag} className="glass-effect text-text-secondary hover:text-accent-primary cursor-pointer transition-colors"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(4px)',
+                }}>#{tag}</Badge>
             ))}
           </div>
         </Card>
@@ -3867,7 +4135,12 @@ const ArtigoModal = ({ artigo, onClose }: { artigo?: Artigo | null, onClose: () 
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-bg-surface border border-border-subtle rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-modal border border-border-subtle rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
+        style={{
+          backdropFilter: 'blur(15px)',
+          background: 'rgba(0, 0, 0, 0.3)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+        }}>
         <div className="p-6 border-b border-border-subtle flex justify-between items-center shrink-0">
           <h2 className="text-xl font-bold text-text-primary">{artigo ? 'Editar Artigo' : 'Novo Artigo'}</h2>
           <button onClick={onClose} className="text-text-muted hover:text-text-primary"><X className="w-5 h-5" /></button>
@@ -3895,7 +4168,11 @@ const ArtigoModal = ({ artigo, onClose }: { artigo?: Artigo | null, onClose: () 
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-secondary">Tags (máx 8)</label>
-            <div className="flex flex-wrap gap-2 p-2 min-h-[42px] bg-black/20 border border-border-subtle rounded-lg focus-within:border-accent-primary focus-within:ring-1 focus-within:ring-accent-primary transition-all">
+            <div className="glass-input flex flex-wrap gap-2 p-2 min-h-[42px] border border-border-subtle rounded-xl focus-within:border-accent-primary focus-within:ring-1 focus-within:ring-accent-primary transition-all"
+              style={{
+                background: 'rgba(0, 0, 0, 0.3)',
+                backdropFilter: 'blur(6px)',
+              }}>
               {tags.map(tag => (
                 <Badge key={tag} className="bg-accent-primary/20 text-accent-primary flex items-center gap-1 pr-1">
                   {tag} <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => setTags(tags.filter(t => t !== tag))} />
@@ -3918,14 +4195,18 @@ const ArtigoModal = ({ artigo, onClose }: { artigo?: Artigo | null, onClose: () 
             <div className="flex justify-between items-center">
               <label className="text-sm font-medium text-text-secondary">Conteúdo *</label>
               <div className="flex items-center gap-2">
-                <div className="flex bg-black/20 rounded-lg p-1">
-                  <button onClick={() => insertFormat('**', '**')} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-white/10 rounded" title="Negrito"><b>N</b></button>
-                  <button onClick={() => insertFormat('*', '*')} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-white/10 rounded italic" title="Itálico">I</button>
-                  <button onClick={() => insertFormat('`', '`')} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-white/10 rounded font-mono" title="Código">{'</>'}</button>
+                <div className="glass-effect flex rounded-xl p-1"
+                  style={{
+                    background: 'rgba(0, 0, 0, 0.3)',
+                    backdropFilter: 'blur(6px)',
+                  }}>
+                  <button onClick={() => insertFormat('**', '**')} className="glass-button p-1.5 text-text-muted hover:text-text-primary rounded" title="Negrito" style={{ background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(4px)' }}><b>N</b></button>
+                  <button onClick={() => insertFormat('*', '*')} className="glass-button p-1.5 text-text-muted hover:text-text-primary rounded italic" title="Itálico" style={{ background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(4px)' }}>I</button>
+                  <button onClick={() => insertFormat('`', '`')} className="glass-button p-1.5 text-text-muted hover:text-text-primary rounded font-mono" title="Código" style={{ background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(4px)' }}>{'</>'}</button>
                   <div className="w-px h-6 bg-border-subtle mx-1 self-center" />
-                  <button onClick={() => insertFormat('\n## ')} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-white/10 rounded font-bold" title="Título 2">H2</button>
-                  <button onClick={() => insertFormat('\n- ')} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-white/10 rounded" title="Lista"><List className="w-4 h-4" /></button>
-                  <button onClick={() => insertFormat('\n- [ ] ')} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-white/10 rounded" title="Checkbox"><CheckCircle className="w-4 h-4" /></button>
+                  <button onClick={() => insertFormat('\n## ')} className="glass-button p-1.5 text-text-muted hover:text-text-primary rounded font-bold" title="Título 2" style={{ background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(4px)' }}>H2</button>
+                  <button onClick={() => insertFormat('\n- ')} className="glass-button p-1.5 text-text-muted hover:text-text-primary rounded" title="Lista" style={{ background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(4px)' }}><List className="w-4 h-4" /></button>
+                  <button onClick={() => insertFormat('\n- [ ] ')} className="glass-button p-1.5 text-text-muted hover:text-text-primary rounded" title="Checkbox" style={{ background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(4px)' }}><CheckCircle className="w-4 h-4" /></button>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setPreview(!preview)} className="gap-2">
                   <BookOpen className="w-4 h-4" /> {preview ? 'Editar' : 'Preview'}
@@ -3934,7 +4215,11 @@ const ArtigoModal = ({ artigo, onClose }: { artigo?: Artigo | null, onClose: () 
             </div>
             
             {preview ? (
-              <div className="flex-1 min-h-[300px] p-4 bg-black/20 border border-border-subtle rounded-lg overflow-y-auto">
+              <div className="glass-input flex-1 min-h-[300px] p-4 border border-border-subtle rounded-xl overflow-y-auto"
+                style={{
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  backdropFilter: 'blur(6px)',
+                }}>
                 <MarkdownRenderer content={conteudo || '*Nenhum conteúdo*'} />
               </div>
             ) : (
@@ -3943,20 +4228,32 @@ const ArtigoModal = ({ artigo, onClose }: { artigo?: Artigo | null, onClose: () 
                 value={conteudo}
                 onChange={e => setConteudo(e.target.value)}
                 placeholder="Escreva o conteúdo do artigo. Use ## para títulos, **texto** para negrito, - para listas..."
-                className="flex-1 min-h-[300px] w-full bg-black/20 border border-border-subtle rounded-lg p-4 text-text-primary font-mono text-sm focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary resize-y"
+                className="glass-input flex-1 min-h-[300px] w-full border border-border-subtle rounded-xl p-4 text-text-primary font-mono text-sm focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary resize-y"
+                style={{
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  backdropFilter: 'blur(6px)',
+                }}
               />
             )}
           </div>
         </div>
 
-        <div className="p-6 border-t border-border-subtle bg-bg-surface/50 flex justify-between items-center shrink-0">
+        <div className="glass-effect p-6 border-t border-border-subtle flex justify-between items-center shrink-0"
+          style={{
+            background: 'rgba(0, 0, 0, 0.25)',
+            backdropFilter: 'blur(8px)',
+          }}>
           <div className="flex items-center gap-3">
             <span className="text-sm text-text-secondary">Status:</span>
             <button 
               onClick={() => setPublicado(!publicado)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${publicado ? 'bg-accent-primary' : 'bg-border-subtle'}`}
             >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${publicado ? 'translate-x-6' : 'translate-x-1'}`} />
+              <span className={`glass-effect inline-block h-4 w-4 transform rounded-full transition-transform ${publicado ? 'translate-x-6' : 'translate-x-1'}`}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(4px)',
+                }} />
             </button>
             <span className={`text-sm font-medium ${publicado ? 'text-accent-primary' : 'text-text-muted'}`}>{publicado ? 'Publicado' : 'Rascunho'}</span>
           </div>
@@ -4040,7 +4337,14 @@ const KnowledgeBaseView = () => {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
       {/* Hero Search */}
-      <div className="text-center py-16 px-4 bg-bg-surface border border-border-subtle rounded-2xl relative overflow-hidden">
+      <div className="glass-card text-center py-16 px-4 relative overflow-hidden"
+        style={{
+          backdropFilter: 'blur(8px)',
+          background: 'rgba(255, 255, 255, 0.12)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          borderRadius: '32px',
+          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+        }}>
         <div className="absolute inset-0 bg-gradient-to-b from-accent-primary/10 to-transparent"></div>
         <div className="relative z-10 max-w-3xl mx-auto">
           <h2 className="text-4xl font-bold text-text-primary mb-4">Base de Conhecimento</h2>
@@ -4051,7 +4355,7 @@ const KnowledgeBaseView = () => {
               value={busca}
               onChange={e => setBusca(e.target.value)}
               placeholder="Pesquisar artigos, guias, FAQs..."
-              className="pl-14 py-6 text-lg rounded-2xl shadow-2xl bg-bg-primary/80 backdrop-blur-sm border-accent-primary/30 focus:border-accent-primary"
+              className="pl-14 py-6 text-lg rounded-xl shadow-2xl bg-bg-primary/80 backdrop-blur-sm border-accent-primary/30 focus:border-accent-primary"
             />
           </div>
         </div>
@@ -4070,10 +4374,21 @@ const KnowledgeBaseView = () => {
             return (
               <div 
                 key={cat.id} 
-                className={`bg-bg-surface border rounded-xl overflow-hidden backdrop-blur-md p-4 cursor-pointer transition-all hover:-translate-y-1 ${isSelected ? 'border-accent-primary bg-accent-primary/5 ring-1 ring-accent-primary' : 'border-border-subtle hover:border-border-subtle'}`}
+                className={`glass-card cursor-pointer transition-all hover:-translate-y-1 ${isSelected ? 'border-accent-primary ring-1 ring-accent-primary' : ''}`}
+                style={{
+                  backdropFilter: 'blur(8px)',
+                  background: isSelected 
+                    ? 'rgba(139, 92, 246, 0.15)' 
+                    : 'rgba(255, 255, 255, 0.12)',
+                  border: isSelected 
+                    ? '1px solid rgba(139, 92, 246, 0.4)' 
+                    : '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '20px',
+                  padding: '16px',
+                }}
                 onClick={() => setCategoriaAtiva(isSelected ? 'todas' : cat.id)}
               >
-                <div className={`w-10 h-10 rounded-lg ${cat.bg} ${cat.color} flex items-center justify-center mb-3`}>
+                <div className={`w-10 h-10 rounded-xl ${cat.bg} ${cat.color} flex items-center justify-center mb-3`}>
                   <cat.icon className="w-5 h-5" />
                 </div>
                 <h3 className="font-medium text-text-primary">{cat.id}</h3>
@@ -4096,7 +4411,13 @@ const KnowledgeBaseView = () => {
                   setIsManageMode(!isManageMode);
                   setSelectedArticles([]);
                 }}
-                className={`text-xs font-medium px-3 py-1 rounded-full transition-all ${isManageMode ? 'bg-accent-primary text-white' : 'bg-white/5 text-text-muted hover:text-text-primary'}`}
+                className={`glass-button text-xs font-medium px-3 py-1 rounded-xl transition-all ${isManageMode ? 'text-white' : 'text-text-muted hover:text-text-primary'}`}
+                style={{
+                  background: isManageMode 
+                    ? 'rgba(139, 92, 246, 0.8)' 
+                    : 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(6px)',
+                }}
               >
                 {isManageMode ? 'Sair do Modo Gerenciamento' : 'Gerenciar Artigos'}
               </button>
@@ -4119,7 +4440,11 @@ const KnowledgeBaseView = () => {
                     }
                   });
                 }}
-                className="flex items-center gap-2 px-3 py-1 rounded-full bg-danger/10 text-danger text-xs font-bold hover:bg-danger/20 transition-colors border border-danger/20"
+                className="glass-button flex items-center gap-2 px-3 py-1 rounded-xl text-danger text-xs font-bold transition-colors border border-danger/20"
+                style={{
+                  background: 'rgba(248, 113, 113, 0.15)',
+                  backdropFilter: 'blur(6px)',
+                }}
               >
                 <Trash2 className="w-3.5 h-3.5" /> Excluir Selecionados ({selectedArticles.length})
               </button>
@@ -4129,7 +4454,11 @@ const KnowledgeBaseView = () => {
         </div>
 
         {artigosFiltrados.length === 0 ? (
-          <div className="text-center py-16 bg-bg-surface/50 rounded-xl border border-border-subtle border-dashed">
+          <div className="glass-card text-center py-16 bg-gradient-to-br from-accent-primary/10 to-transparent border border-border-subtle border-dashed rounded-xl"
+            style={{
+              background: 'rgba(0, 0, 0, 0.25)',
+              backdropFilter: 'blur(8px)',
+            }}>
             <Search className="w-12 h-12 text-text-muted mx-auto mb-4 opacity-50" />
             <h3 className="text-lg font-medium text-text-primary mb-2">Nenhum artigo encontrado</h3>
             <p className="text-text-secondary mb-6">Tente usar termos diferentes ou limpar os filtros.</p>
@@ -4149,7 +4478,18 @@ const KnowledgeBaseView = () => {
               return (
                 <div 
                   key={artigo.id} 
-                  className={`bg-bg-surface border rounded-xl overflow-hidden backdrop-blur-md p-6 cursor-pointer transition-all group relative ${isManageMode ? (isSelected ? 'border-accent-primary ring-1 ring-accent-primary' : 'border-border-subtle opacity-80') : 'border-border-subtle hover:border-accent-primary/40'}`} 
+                  className={`glass-card cursor-pointer transition-all group relative ${isManageMode ? (isSelected ? 'border-accent-primary ring-1 ring-accent-primary' : 'opacity-80') : 'hover:border-accent-primary/40'}`}
+                  style={{
+                    backdropFilter: 'blur(8px)',
+                    background: isSelected 
+                      ? 'rgba(139, 92, 246, 0.15)' 
+                      : 'rgba(255, 255, 255, 0.12)',
+                    border: isSelected 
+                      ? '1px solid rgba(139, 92, 246, 0.4)' 
+                      : '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '20px',
+                    padding: '24px',
+                  }}
                   onClick={() => {
                     if (isManageMode) {
                       if (isSelected) setSelectedArticles(selectedArticles.filter(id => id !== artigo.id));
@@ -4161,7 +4501,13 @@ const KnowledgeBaseView = () => {
                 >
                   {isManageMode && (
                     <div className="absolute top-4 right-4 z-20">
-                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${isSelected ? 'bg-accent-primary border-accent-primary' : 'bg-white/5 border-border-subtle'}`}>
+                      <div className={`glass-effect w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${isSelected ? 'border-accent-primary' : 'border-border-subtle'}`}
+                        style={{
+                          background: isSelected 
+                            ? 'rgba(139, 92, 246, 0.8)' 
+                            : 'rgba(255, 255, 255, 0.05)',
+                          backdropFilter: 'blur(6px)',
+                        }}>
                         {isSelected && <CheckCircle className="w-3.5 h-3.5 text-white" />}
                       </div>
                     </div>
@@ -4173,8 +4519,8 @@ const KnowledgeBaseView = () => {
                     <Badge className={`${catInfo.bg} ${catInfo.color} border-none`}>{artigo.categoria}</Badge>
                     {usuarioLogado?.perfil === 'admin' && !isManageMode && (
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={(e) => { e.stopPropagation(); setArtigoEditando(artigo); setModalOpen(true); }} className="p-1.5 text-text-muted hover:text-accent-primary hover:bg-white/10 rounded-md transition-colors"><SettingsIcon className="w-4 h-4" /></button>
-                        <button onClick={(e) => handleDelete(e, artigo)} className="p-1.5 text-text-muted hover:text-danger hover:bg-danger/10 rounded-md transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); setArtigoEditando(artigo); setModalOpen(true); }} className="glass-button p-1.5 text-text-muted hover:text-accent-primary rounded-md transition-colors" style={{ background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(4px)' }}><SettingsIcon className="w-4 h-4" /></button>
+                        <button onClick={(e) => handleDelete(e, artigo)} className="glass-button p-1.5 text-text-muted hover:text-danger rounded-md transition-colors" style={{ background: 'rgba(248, 113, 113, 0.1)', backdropFilter: 'blur(4px)' }}><Trash2 className="w-4 h-4" /></button>
                       </div>
                     )}
                   </div>
@@ -5082,9 +5428,20 @@ const ItemNotificacao: React.FC<{ notif: Notificacao, onLer: () => void, onDelet
   return (
     <div
       onClick={onLer}
-      className={`p-3 border-b border-border-subtle cursor-pointer flex gap-3 items-start transition-colors group ${notif.lida ? 'bg-transparent hover:bg-white/5' : 'bg-accent-primary/10 hover:bg-accent-primary/20'}`}
+      className={`glass-effect p-3 border-b cursor-pointer flex gap-3 items-start transition-colors group ${notif.lida ? 'hover:glass-card' : ''}`}
+      style={{
+        background: notif.lida 
+          ? 'rgba(255, 255, 255, 0.05)' 
+          : 'rgba(139, 92, 246, 0.15)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        backdropFilter: 'blur(6px)',
+      }}
     >
-      <div className="w-9 h-9 rounded-full bg-bg-elevated flex items-center justify-center text-base shrink-0">
+      <div className="glass-effect w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0"
+        style={{
+          background: 'rgba(255, 255, 255, 0.15)',
+          backdropFilter: 'blur(5px)',
+        }}>
         {icones[notif.tipo] || '🔔'}
       </div>
 
@@ -5174,7 +5531,11 @@ function SinoNotificacoes({ setCurrentView, setTicketAtivo }: { setCurrentView: 
       <button
         ref={btnRef}
         onClick={abrirPainel}
-        className="relative bg-transparent border-none cursor-pointer p-2 text-text-muted hover:text-text-primary transition-colors rounded-full hover:bg-white/5"
+        className="glass-button relative border-none cursor-pointer p-2 text-text-muted hover:text-text-primary transition-colors rounded-xl"
+        style={{
+          background: 'rgba(255, 255, 255, 0.05)',
+          backdropFilter: 'blur(6px)',
+        }}
       >
         <Bell className="w-5 h-5" />
         {naoLidas > 0 && (
@@ -5187,15 +5548,24 @@ function SinoNotificacoes({ setCurrentView, setTicketAtivo }: { setCurrentView: 
       {aberto && ReactDOM.createPortal(
         <div 
           ref={painelRef}
+          className="glass-modal w-[380px] max-h-[520px] flex flex-col overflow-hidden"
           style={{
             position: 'fixed',
             top: posicao.top,
             right: posicao.right,
             zIndex: 2500,
+            backdropFilter: 'blur(15px)',
+            background: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            borderRadius: '24px',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
           }}
-          className="w-[380px] max-h-[520px] bg-bg-surface border border-border-subtle rounded-xl shadow-2xl flex flex-col overflow-hidden"
         >
-          <div className="p-4 border-b border-border-subtle flex items-center justify-between bg-bg-elevated/50">
+          <div className="glass-effect p-4 border-b border-border-subtle flex items-center justify-between"
+            style={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
+            }}>
             <div>
               <span className="font-semibold text-text-primary">Notificações</span>
               {naoLidas > 0 && (
@@ -5448,7 +5818,7 @@ function MainApp() {
             transition={{ duration: 0.4 }}
           >
             <Card className="p-8 text-center border-t-4 border-t-accent-primary">
-              <div className="w-16 h-16 bg-accent-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_var(--color-accent-glow)]">
+              <div className="w-16 h-16 bg-accent-primary/10 rounded-xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_var(--color-accent-glow)]">
                 <SettingsIcon className="w-8 h-8 text-accent-primary" />
               </div>
               <h1 className="text-2xl font-bold text-text-primary mb-2">
@@ -5461,7 +5831,11 @@ function MainApp() {
 
               <form onSubmit={handleLogin} className="space-y-4 text-left">
                 {loginError && (
-                  <div className="p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm text-center">
+                  <div className="glass-effect p-3 border border-danger/20 rounded-xl text-danger text-sm text-center"
+                    style={{
+                      background: 'rgba(248, 113, 113, 0.15)',
+                      backdropFilter: 'blur(6px)',
+                    }}>
                     {loginError}
                   </div>
                 )}
@@ -5509,7 +5883,11 @@ function MainApp() {
             </Card>
           </motion.div>
 
-          <div className="mt-6 p-4 bg-black/20 backdrop-blur-sm rounded-xl border border-white/5">
+          <div className="glass-card mt-6 p-4 backdrop-blur-sm rounded-xl border border-white/5"
+            style={{
+              background: 'rgba(0, 0, 0, 0.3)',
+              backdropFilter: 'blur(8px)',
+            }}>
             <p className="text-xs text-text-muted font-medium mb-2 uppercase tracking-wider">
               Acesso rápido para demonstração
             </p>
@@ -5563,9 +5941,9 @@ function MainApp() {
     <div className="min-h-screen flex bg-transparent text-text-primary relative overflow-hidden">
 
       {/* Sidebar */}
-      <aside className="w-64 bg-bg-sidebar/80 backdrop-blur-xl border-r border-border-subtle flex flex-col z-[100] hidden md:flex">
+      <aside className="glass-sidebar w-64 backdrop-blur-xl border-r border-border-subtle flex flex-col z-[100] hidden md:flex">
         <div className="p-6 flex items-center gap-3">
-          <div className="w-8 h-8 bg-accent-primary rounded-lg flex items-center justify-center shadow-[0_0_15px_var(--color-accent-glow)]">
+          <div className="w-8 h-8 bg-accent-primary rounded-xl flex items-center justify-center shadow-[0_0_15px_var(--color-accent-glow)]">
             <SettingsIcon className="w-5 h-5 text-white" />
           </div>
           <span className="font-bold text-lg tracking-tight">Central TI</span>
@@ -5578,11 +5956,17 @@ function MainApp() {
               <button
                 key={item.id}
                 onClick={() => setCurrentView(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                className={`glass-button w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   isActive
-                    ? "bg-accent-primary/20 text-accent-primary border-l-2 border-accent-primary"
-                    : "text-text-secondary hover:bg-white/5 hover:text-text-primary border-l-2 border-transparent"
+                    ? "text-accent-primary border-l-2 border-accent-primary"
+                    : "text-text-secondary hover:text-text-primary border-l-2 border-transparent"
                 }`}
+                style={{
+                  background: isActive 
+                    ? 'rgba(139, 92, 246, 0.2)' 
+                    : 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(6px)',
+                }}
               >
                 <item.icon
                   className={`w-5 h-5 ${isActive ? "text-accent-primary" : "text-text-muted"}`}
@@ -5594,7 +5978,11 @@ function MainApp() {
         </nav>
 
         <div className="p-4 border-t border-border-subtle">
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer group">
+          <div className="glass-effect flex items-center gap-3 px-3 py-2 rounded-xl transition-colors cursor-pointer group"
+            style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              backdropFilter: 'blur(6px)',
+            }}>
             <div
               className="w-8 h-8 rounded-full bg-accent-primary/20 flex items-center justify-center text-accent-primary font-medium"
               onClick={() => setCurrentView("settings")}
@@ -5633,9 +6021,14 @@ function MainApp() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden z-[1] relative">
         {/* Topbar */}
-        <header className="h-16 bg-bg-surface/50 backdrop-blur-md border-b border-border-subtle flex items-center justify-between px-6 shrink-0">
+        <header className="glass-effect h-16 backdrop-blur-md border-b border-border-subtle flex items-center justify-between px-6 shrink-0"
+          style={{
+            background: 'rgba(0, 0, 0, 0.25)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '0px',
+          }}>
           <div className="flex items-center gap-4 md:hidden">
-            <div className="w-8 h-8 bg-accent-primary rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-accent-primary rounded-xl flex items-center justify-center">
               <SettingsIcon className="w-5 h-5 text-white" />
             </div>
           </div>
@@ -5645,7 +6038,11 @@ function MainApp() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
               <Input
                 placeholder="Pesquisar chamados, artigos..."
-                className="pl-10 bg-black/20 border-transparent focus:bg-bg-primary"
+                className="glass-input pl-10 border-transparent focus:bg-bg-primary"
+                style={{
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  backdropFilter: 'blur(6px)',
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     const term = e.currentTarget.value;
@@ -5673,7 +6070,7 @@ function MainApp() {
               {tema === 'escuro' ? <motion.span initial={{ rotate: -20 }} animate={{ rotate: 0 }}><Moon className="w-5 h-5" /></motion.span> : <motion.span initial={{ rotate: 20 }} animate={{ rotate: 0 }}><Sun className="w-5 h-5" /></motion.span>}
             </button>
             <SinoNotificacoes setCurrentView={setCurrentView} setTicketAtivo={setTicketAtivo} />
-            <button className="w-8 h-8 rounded-full bg-accent-primary/20 flex items-center justify-center text-accent-primary font-medium hover:bg-accent-primary/30 transition-colors sm:hidden">
+            <button className="w-8 h-8 rounded-xl bg-accent-primary/20 flex items-center justify-center text-accent-primary font-medium hover:bg-accent-primary/30 transition-colors sm:hidden">
               {usuarioLogado.avatar}
             </button>
           </div>
@@ -5749,7 +6146,12 @@ function MainApp() {
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
-            className="fixed bottom-6 left-6 right-6 z-[2500] bg-bg-elevated border border-accent-primary/30 shadow-[0_20px_60px_rgba(0,0,0,0.7)] rounded-2xl px-8 py-5 backdrop-blur-xl max-w-7xl mx-auto"
+            className="glass-modal fixed bottom-6 left-6 right-6 z-[2500] shadow-[0_20px_60px_rgba(0,0,0,0.7)] rounded-xl px-8 py-5 max-w-7xl mx-auto"
+            style={{
+              backdropFilter: 'blur(15px)',
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
+            }}
           >
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
               {/* Contador de selecionados */}
@@ -5771,7 +6173,11 @@ function MainApp() {
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-text-secondary">Status</label>
                   <Select
-                    className="w-36 py-2 text-sm bg-bg-surface border-accent-primary/30"
+                    className="glass-input w-36 py-2 text-sm border-accent-primary/30"
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      backdropFilter: 'blur(6px)',
+                    }}
                     onChange={(e: any) => {
                       if (e.target.value) {
                         const statusValue = e.target.value;
@@ -5806,7 +6212,11 @@ function MainApp() {
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-text-secondary">Prioridade</label>
                   <Select
-                    className="w-36 py-2 text-sm bg-bg-surface border-accent-primary/30"
+                    className="glass-input w-36 py-2 text-sm border-accent-primary/30"
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      backdropFilter: 'blur(6px)',
+                    }}
                     onChange={(e: any) => {
                       if (e.target.value) {
                         const prioridadeValue = e.target.value;
@@ -5838,7 +6248,11 @@ function MainApp() {
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-text-secondary">Responsável</label>
                   <Select
-                    className="w-44 py-2 text-sm bg-bg-surface border-accent-primary/30"
+                    className="glass-input w-44 py-2 text-sm border-accent-primary/30"
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      backdropFilter: 'blur(6px)',
+                    }}
                     onChange={(e: any) => {
                       if (e.target.value) {
                         const responsavelValue = e.target.value;
@@ -5889,14 +6303,22 @@ function MainApp() {
                         }
                       });
                     }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-danger hover:bg-danger/10 transition-colors border border-danger/30 bg-danger/5"
+                    className="glass-button flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-danger transition-colors border border-danger/30"
+                style={{
+                  background: 'rgba(248, 113, 113, 0.1)',
+                  backdropFilter: 'blur(6px)',
+                }}
                   >
                     <Trash2 className="w-4 h-4" /> Excluir
                   </button>
 
                   <button 
                     onClick={() => setSelectedTickets([])}
-                    className="px-4 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors border border-border-subtle"
+                    className="glass-button px-4 py-2 rounded-xl text-sm font-medium text-text-secondary hover:text-text-primary transition-colors border border-border-subtle"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      backdropFilter: 'blur(6px)',
+                    }}
                   >
                     Cancelar
                   </button>
@@ -5923,10 +6345,21 @@ function MainApp() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 right-0 w-full max-w-2xl bg-bg-surface border-l border-border-subtle shadow-2xl z-[2000] flex flex-col"
+              className="glass-modal fixed inset-y-0 right-0 w-full max-w-2xl border-l border-border-subtle shadow-2xl z-[2000] flex flex-col"
+              style={{
+                backdropFilter: 'blur(15px)',
+                background: 'rgba(0, 0, 0, 0.3)',
+                borderLeft: '1px solid rgba(255, 255, 255, 0.2)',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
+              }}
             >
               {ticketAtivo.status === 'Contestado' && usuarioLogado.perfil === 'admin' && (
-                <div className="bg-orange-500/20 border-b border-orange-500/30 p-4 flex items-center justify-between">
+                <div className="glass-effect border-b border-orange-500/30 p-4 flex items-center justify-between"
+                  style={{
+                    background: 'rgba(251, 146, 60, 0.2)',
+                    backdropFilter: 'blur(8px)',
+                    borderBottom: '1px solid rgba(251, 146, 60, 0.3)',
+                  }}>
                   <div className="flex items-center gap-3">
                     <AlertTriangle className="w-5 h-5 text-orange-500" />
                     <div>
@@ -5941,7 +6374,11 @@ function MainApp() {
                       adicionarAtividade(ticketAtivo.id, "Chamado reanalisado pelo administrador", "reanalise");
                       showToast("Status alterado para Em Andamento");
                     }}
-                    className="px-3 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-lg hover:bg-orange-600 transition-colors"
+                    className="glass-button px-3 py-1.5 text-white text-xs font-medium rounded-xl transition-colors"
+                    style={{
+                      background: 'rgba(251, 146, 60, 0.8)',
+                      backdropFilter: 'blur(6px)',
+                    }}
                   >
                     Reanalisar
                   </button>
@@ -5994,7 +6431,11 @@ function MainApp() {
                           }
                         });
                       }}
-                      className="p-2 text-danger hover:bg-danger/10 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium border border-danger/20"
+                      className="glass-button p-2 text-danger rounded-xl transition-colors flex items-center gap-2 text-sm font-medium border border-danger/20"
+                      style={{
+                        background: 'rgba(248, 113, 113, 0.1)',
+                        backdropFilter: 'blur(6px)',
+                      }}
                       title="Excluir Chamado"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -6003,7 +6444,11 @@ function MainApp() {
                   )}
                   <button
                     onClick={() => setTicketAtivo(null)}
-                    className="p-2 text-text-muted hover:text-text-primary hover:bg-white/5 rounded-lg transition-colors"
+                    className="glass-button p-2 text-text-muted hover:text-text-primary rounded-xl transition-colors"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      backdropFilter: 'blur(6px)',
+                    }}
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -6107,7 +6552,11 @@ function MainApp() {
 
                 {/* Mostrar avaliação já feita */}
                 {ticketAtivo.avaliacao && !ticketAtivo.avaliacao.ignorado && (
-                  <div className="mt-6 p-4 bg-success/10 border border-success/20 rounded-xl">
+                  <div className="glass-card mt-6 p-4 border border-success/20 rounded-xl"
+                    style={{
+                      background: 'rgba(52, 211, 153, 0.15)',
+                      backdropFilter: 'blur(8px)',
+                    }}>
                     <div className="flex items-start gap-3">
                       <CheckCircle className="w-5 h-5 text-success shrink-0 mt-0.5" />
                       <div className="flex-1">
@@ -6163,7 +6612,11 @@ function MainApp() {
 
                 {/* Related Articles */}
                 {usuarioLogado.perfil === 'admin' && (
-                  <div className="border border-border-subtle rounded-xl p-5 bg-bg-surface/50">
+                  <div className="glass-card border border-border-subtle rounded-xl p-5"
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.25)',
+                      backdropFilter: 'blur(8px)',
+                    }}>
                     <h3 className="text-sm font-medium text-text-primary mb-3 flex items-center gap-2">
                       <BookOpen className="w-4 h-4 text-accent-primary" /> Artigos Relacionados
                     </h3>
@@ -6178,12 +6631,20 @@ function MainApp() {
                         }
                         
                         return relacionados.map(artigo => (
-                          <div key={artigo.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer border border-transparent hover:border-border-subtle group" onClick={() => {
+                          <div key={artigo.id} className="glass-effect flex items-center justify-between p-2 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-border-subtle group" onClick={() => {
                             setCurrentView('kb');
                             setTicketAtivo(null);
+                          }}
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            backdropFilter: 'blur(6px)',
                           }}>
                             <div className="flex items-center gap-3 min-w-0">
-                              <Badge className="bg-white/5 text-text-secondary text-[10px] px-1.5 py-0 shrink-0">{artigo.categoria}</Badge>
+                              <Badge className="glass-effect text-text-secondary text-[10px] px-1.5 py-0 shrink-0"
+                                style={{
+                                  background: 'rgba(255, 255, 255, 0.05)',
+                                  backdropFilter: 'blur(4px)',
+                                }}>{artigo.categoria}</Badge>
                               <span className="text-sm text-text-primary truncate group-hover:text-accent-primary transition-colors">{artigo.titulo}</span>
                             </div>
                             <ChevronRight className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
@@ -6211,9 +6672,18 @@ function MainApp() {
                 </div>
               </div>
 
-              <div className="p-6 border-t border-border-subtle bg-black/20">
+              <div className="glass-effect p-6 border-t border-border-subtle"
+                style={{
+                  background: 'rgba(0, 0, 0, 0.25)',
+                  backdropFilter: 'blur(8px)',
+                  borderTop: '1px solid rgba(255, 255, 255, 0.15)',
+                }}>
                 {ticketAtivo.status === 'Resolvido' && usuarioLogado.perfil === 'usuario' && (
-                  <div className="mb-4 p-3 bg-warning/10 border border-warning/20 rounded-lg flex items-start gap-3">
+                  <div className="glass-effect mb-4 p-3 border border-warning/20 rounded-xl flex items-start gap-3"
+                    style={{
+                      background: 'rgba(251, 191, 36, 0.15)',
+                      backdropFilter: 'blur(6px)',
+                    }}>
                     <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
                     <div>
                       <p className="text-sm font-medium text-warning">Atenção: Chamado Resolvido</p>
@@ -6241,14 +6711,22 @@ function MainApp() {
                   >
                     <textarea
                       placeholder="Adicionar um comentário..."
-                      className="w-full bg-bg-surface border border-border-subtle rounded-lg p-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary resize-none min-h-[100px]"
+                      className="glass-input w-full border border-border-subtle rounded-xl p-3 text-sm text-text-primary focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary resize-none min-h-[100px]"
+                      style={{
+                        background: 'rgba(0, 0, 0, 0.4)',
+                        backdropFilter: 'blur(6px)',
+                      }}
                     ></textarea>
                     <div className="flex justify-between items-center">
                       {usuarioLogado.perfil === "admin" ? (
                         <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
                           <input
                             type="checkbox"
-                            className="rounded border-border-subtle bg-bg-surface text-accent-primary focus:ring-accent-primary"
+                            className="glass-input rounded border-border-subtle text-accent-primary focus:ring-accent-primary"
+                            style={{
+                              background: 'rgba(0, 0, 0, 0.3)',
+                              backdropFilter: 'blur(4px)',
+                            }}
                           />
                           Nota interna (visível apenas para equipe)
                         </label>
@@ -6270,121 +6748,18 @@ function MainApp() {
   );
 }
 
+// Componente wrapper para acessar o tema
+const ThemedBackground = () => {
+  const { tema } = useTheme();
+  
+  if (tema === 'claro') {
+    return <DottedSurface theme={tema} />;
+  } else {
+    return <ShaderBackground theme={tema} />;
+  }
+};
+
 export default function App() {
-  // Inicializar Three.js background
-  useEffect(() => {
-    const initBackground = () => {
-      const canvas = document.getElementById('bg-canvas') as HTMLCanvasElement;
-      if (!canvas) {
-        // Canvas ainda não existe, tentar de novo em 100ms
-        setTimeout(initBackground, 100);
-        return;
-      }
-
-      const AMOUNTX = 50;
-      const AMOUNTY = 50;
-      const SEPARATION = 120;
-
-      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      // Initial color based on localStorage or default to dark
-      const initialTheme = localStorage.getItem('mb_tema') || 'escuro';
-      renderer.setClearColor(initialTheme === 'claro' ? 0xf5f3ff : 0x0d0b14, 1);
-
-      const scene = new THREE.Scene();
-
-      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
-      camera.position.set(0, 300, 1000);
-
-      // Criar geometria
-      const totalParticles = AMOUNTX * AMOUNTY;
-      const positions = new Float32Array(totalParticles * 3);
-
-      let idx = 0;
-      for (let ix = 0; ix < AMOUNTX; ix++) {
-        for (let iy = 0; iy < AMOUNTY; iy++) {
-          positions[idx * 3 + 0] = ix * SEPARATION - (AMOUNTX * SEPARATION) / 2;
-          positions[idx * 3 + 1] = 0;
-          positions[idx * 3 + 2] = iy * SEPARATION - (AMOUNTY * SEPARATION) / 2;
-          idx++;
-        }
-      }
-
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-      const material = new THREE.PointsMaterial({
-        color: initialTheme === 'claro' ? 0x7C3AED : 0xb48cff,
-        size: 6,
-        transparent: true,
-        opacity: initialTheme === 'claro' ? 0.3 : 0.6,
-        sizeAttenuation: true
-      });
-
-      const points = new THREE.Points(geometry, material);
-      scene.add(points);
-
-      // Variável de contagem FORA do loop de animação
-      let count = 0;
-      let rafId: number | null = null;
-
-      function animate() {
-        rafId = requestAnimationFrame(animate);
-
-        // Atualizar posições Y
-        const pos = geometry.attributes.position.array as Float32Array;
-        let i = 0;
-        for (let ix = 0; ix < AMOUNTX; ix++) {
-          for (let iy = 0; iy < AMOUNTY; iy++) {
-            pos[i * 3 + 1] =
-              Math.sin((ix + count) * 0.3) * 100 +
-              Math.sin((iy + count) * 0.5) * 100;
-            i++;
-          }
-        }
-
-        // CRÍTICO: marcar como atualizado a cada frame
-        geometry.attributes.position.needsUpdate = true;
-
-        renderer.render(scene, camera);
-        count += 0.08;
-      }
-
-      // Iniciar animação
-      animate();
-
-      // Resize
-      const handleResize = () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      };
-      
-      window.addEventListener('resize', handleResize);
-
-      // Expor para troca de tema
-      // @ts-ignore
-      window.__bgMaterial = material;
-      // @ts-ignore
-      window.__bgRenderer = renderer;
-
-      // Cleanup function
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        if (rafId) {
-          cancelAnimationFrame(rafId);
-        }
-        renderer.dispose();
-        geometry.dispose();
-        material.dispose();
-      };
-    };
-
-    const cleanup = initBackground();
-    return cleanup;
-  }, []);
-
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "info" | "error";
@@ -6524,6 +6899,8 @@ export default function App() {
       navegarParaArtigo
     }}>
       <ThemeProvider>
+        <GlassFilter />
+        <ThemedBackground />
         <AuthProvider>
           <TicketProvider>
             <KBProvider>
@@ -6542,9 +6919,21 @@ export default function App() {
             exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
             className="fixed bottom-6 right-6 z-[4000]"
           >
-            <div className="bg-bg-surface border border-border-subtle shadow-2xl rounded-lg p-4 flex items-center gap-3 overflow-hidden relative">
+            <div className="glass-card border border-border-subtle shadow-2xl rounded-xl p-4 flex items-center gap-3 overflow-hidden relative"
+              style={{
+                backdropFilter: 'blur(12px)',
+                background: 'rgba(0, 0, 0, 0.4)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
+              }}>
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${toast.type === "success" ? "bg-success/20 text-success" : "bg-info/20 text-info"}`}
+                className={`glass-effect w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${toast.type === "success" ? "text-success" : "text-info"}`}
+                style={{
+                  background: toast.type === "success" 
+                    ? 'rgba(52, 211, 153, 0.2)' 
+                    : 'rgba(129, 140, 248, 0.2)',
+                  backdropFilter: 'blur(6px)',
+                }}
               >
                 {toast.type === "success" ? (
                   <CheckCircle className="w-5 h-5" />
@@ -6557,7 +6946,11 @@ export default function App() {
               </p>
               <button
                 onClick={() => setToast(null)}
-                className="text-text-muted hover:text-text-primary transition-colors"
+                className="glass-button p-1 text-text-muted hover:text-text-primary transition-colors rounded-xl"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(4px)',
+                }}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -6565,7 +6958,7 @@ export default function App() {
                 initial={{ width: "100%" }}
                 animate={{ width: 0 }}
                 transition={{ duration: 3, ease: "linear" }}
-                className={`absolute bottom-0 left-0 h-1 ${toast.type === "success" ? "bg-success" : "bg-info"}`}
+                className={`absolute bottom-0 left-0 h-1 rounded-b-xl ${toast.type === "success" ? "bg-success" : "bg-info"}`}
               />
             </div>
           </motion.div>
