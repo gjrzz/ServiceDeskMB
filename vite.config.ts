@@ -8,7 +8,7 @@ export default defineConfig(({mode}) => {
   return {
     plugins: [react(), tailwindcss()],
     // Configuração para GitHub Pages
-    base: process.env.NODE_ENV === 'production' ? '/service-desk-mb/' : '/',
+    base: process.env.NODE_ENV === 'production' ? '/ServiceDeskMB/' : '/',
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
