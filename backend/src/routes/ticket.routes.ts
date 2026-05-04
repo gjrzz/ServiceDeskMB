@@ -133,11 +133,14 @@ router.post('/', async (req: AuthRequest, res) => {
 
     const chamado = await prisma.chamado.create({
       data: {
-        ...data,
+        titulo: data.titulo,
+        descricao: data.descricao,
+        prioridade: data.prioridade,
+        categoria: data.categoria,
         solicitanteId: req.userId!,
         slaHoras,
         slaVencimento,
-      },
+      } as any,
       include: {
         solicitante: {
           select: {
@@ -173,7 +176,7 @@ router.post('/', async (req: AuthRequest, res) => {
           data: {
             tipo: 'CHAMADO_CRIADO',
             titulo: 'Novo Chamado',
-            mensagem: `${chamado.solicitante.nome} criou: ${chamado.titulo}`,
+            mensagem: `${(chamado as any).solicitante?.nome || 'Usuário'} criou: ${chamado.titulo}`,
             linkTipo: 'chamado',
             linkId: chamado.id,
             destinatarioId: admin.id,
