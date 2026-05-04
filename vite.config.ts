@@ -12,6 +12,13 @@ export default defineConfig(({mode}) => {
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
+      target: 'es2015',
+      minify: 'esbuild',
+      rollupOptions: {
+        output: {
+          manualChunks: undefined,
+        },
+      },
     },
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
