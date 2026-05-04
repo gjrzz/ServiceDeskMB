@@ -187,7 +187,7 @@ type Status =
   | "Contestado";
 type Category = "Hardware" | "Software" | "Rede" | "Acesso" | "Outros";
 
-type Perfil = "admin" | "usuario";
+type Perfil = "admin" | "usuario" | "manager";
 
 interface Usuario {
   id: string;
@@ -1261,6 +1261,7 @@ const UsuariosView = () => {
   const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   const admins = usuarios.filter((u) => u.perfil === "admin").length;
+  const managers = usuarios.filter((u) => u.perfil === "manager").length;
   const inativos = usuarios.filter((u) => !u.ativo).length;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1328,7 +1329,7 @@ const UsuariosView = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <Card className="p-6">
           <p className="text-sm font-medium text-text-secondary">
             Total de Usuários
@@ -1343,6 +1344,14 @@ const UsuariosView = () => {
           </p>
           <p className="text-3xl font-bold text-accent-primary mt-2">
             {admins}
+          </p>
+        </Card>
+        <Card className="p-6">
+          <p className="text-sm font-medium text-text-secondary">
+            Managers
+          </p>
+          <p className="text-3xl font-bold text-warning mt-2">
+            {managers}
           </p>
         </Card>
         <Card className="p-6">
@@ -1389,10 +1398,12 @@ const UsuariosView = () => {
                       className={
                         u.perfil === "admin"
                           ? "bg-accent-primary/20 text-accent-primary"
+                          : u.perfil === "manager"
+                          ? "bg-warning/20 text-warning"
                           : "bg-white/10 text-text-secondary"
                       }
                     >
-                      {u.perfil === "admin" ? "Admin" : "Usuário"}
+                      {u.perfil === "admin" ? "Admin" : u.perfil === "manager" ? "Manager" : "Usuário"}
                     </Badge>
                   </td>
                   <td className="px-6 py-4 text-text-secondary">
@@ -1557,6 +1568,7 @@ const UsuariosView = () => {
                     >
                       <option value="usuario">Usuário Padrão</option>
                       <option value="admin">Administrador</option>
+                      <option value="manager">Manager</option>
                     </Select>
                   </div>
                 </div>
@@ -1614,6 +1626,579 @@ const UsuariosView = () => {
                   </Button>
                   <Button type="submit">
                     {editingUser ? "Salvar Alterações" : "Criar Usuário"}
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
+// ---- ACTIVITY LOG VIEW ----
+const ActivityLogView = () => {
+  const { usuarios, usuarioLogado } = useAuth();
+  const { criarChamado } = useTickets();
+  const { showToast } = useAppContext();
+  const [showModal, setShowModal] = useState(false);
+  const [registros, setRegistros] = useState<any[]>([]);
+  const [anexos, setAnexos] = useState<File[]>([]);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Carregar registros do localStorage e filtrar pelo usuário logado (exceto managers)
+  useEffect(() => {
+    const saved = localStorage.getItem('mb_activity_log');
+    if (saved) {
+      const todosRegistros = JSON.parse(saved);
+      
+      // Managers veem todos os registros, admins veem apenas os seus
+      if (usuarioLogado?.perfil === 'manager') {
+        setRegistros(todosRegistros);
+      } else {
+        // Filtrar apenas os registros criados pelo usuário logado
+        const registrosFiltrados = todosRegistros.filter(
+          (registro: any) => registro.registradoPor === usuarioLogado?.nome
+        );
+        setRegistros(registrosFiltrados);
+      }
+    }
+  }, [usuarioLogado]);
+
+  // Salvar registros no localStorage (mantendo registros de outros usuários)
+  const salvarRegistros = (novosRegistros: any[]) => {
+    const saved = localStorage.getItem('mb_activity_log');
+    const todosRegistros = saved ? JSON.parse(saved) : [];
+    
+    // Remover registros antigos do usuário atual
+    const registrosOutrosUsuarios = todosRegistros.filter(
+      (registro: any) => registro.registradoPor !== usuarioLogado?.nome
+    );
+    
+    // Adicionar novos registros do usuário atual
+    const registrosAtualizados = [...registrosOutrosUsuarios, ...novosRegistros];
+    
+    localStorage.setItem('mb_activity_log', JSON.stringify(registrosAtualizados));
+    setRegistros(novosRegistros);
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const validateAndAddFiles = (files: FileList | null) => {
+    if (!files) return;
+    const newFiles = Array.from(files);
+    const validFiles: File[] = [];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    newFiles.forEach(file => {
+      if (file.size > maxSize) {
+        showToast(`O arquivo ${file.name} excede o limite de 5MB`, 'error');
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    setAnexos(prev => [...prev, ...validFiles]);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      validateAndAddFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      validateAndAddFiles(e.target.files);
+    }
+  };
+
+  const removerAnexo = (index: number) => {
+    setAnexos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    
+    const solicitanteId = (form.elements.namedItem("solicitante") as HTMLSelectElement).value;
+    const titulo = (form.elements.namedItem("titulo") as HTMLInputElement).value;
+    const descricao = (form.elements.namedItem("descricao") as HTMLTextAreaElement).value;
+    const prioridade = (form.elements.namedItem("prioridade") as HTMLSelectElement).value as Priority;
+    const categoria = (form.elements.namedItem("categoria") as HTMLSelectElement).value as Category;
+    const status = (form.elements.namedItem("status") as HTMLSelectElement).value as Status;
+    const origem = (form.elements.namedItem("origem") as HTMLSelectElement).value;
+    const observacoes = (form.elements.namedItem("observacoes") as HTMLTextAreaElement).value;
+
+    const solicitante = usuarios.find(u => u.id === solicitanteId);
+    if (!solicitante) {
+      showToast("Solicitante não encontrado", "error");
+      return;
+    }
+
+    // Converter anexos para metadados
+    const anexosMetadados = anexos.map(file => ({
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      url: generateFileUrl(file)
+    }));
+
+    // Criar o chamado
+    const novoChamado = criarChamado({
+      title: titulo, // Usar 'title' ao invés de 'titulo'
+      description: `${descricao}\n\n---\n**Origem:** ${origem}\n${observacoes ? `**Observações:** ${observacoes}` : ''}`,
+      priority: prioridade,
+      category: categoria,
+      status,
+      attachments: anexosMetadados,
+      solicitanteId: solicitante.id,
+      solicitanteNome: solicitante.nome,
+      solicitanteEmail: solicitante.email,
+    });
+
+    // Registrar a atividade
+    const novoRegistro = {
+      id: `REG-${Date.now()}`,
+      chamadoId: novoChamado.id,
+      solicitanteId: solicitante.id,
+      solicitanteNome: solicitante.nome,
+      titulo,
+      status,
+      origem,
+      registradoPor: usuarioLogado?.nome,
+      registradoEm: new Date().toISOString(),
+      observacoes,
+      anexos: anexosMetadados.length,
+    };
+
+    salvarRegistros([novoRegistro, ...registros]);
+    
+    showToast("Chamado registrado com sucesso", "success");
+    setShowModal(false);
+    setAnexos([]); // Limpar anexos
+    form.reset();
+  };
+
+  const excluirRegistro = (id: string) => {
+    salvarRegistros(registros.filter(r => r.id !== id));
+    showToast("Registro excluído", "success");
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6"
+    >
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-text-primary">
+            Registro de Atividades
+          </h2>
+          <p className="text-text-secondary mt-1">
+            Registre chamados que foram solicitados fora do portal (pessoalmente, mensagem, telefone, etc.)
+          </p>
+          <p className="text-xs text-text-muted mt-1">
+            {usuarioLogado?.perfil === 'manager' 
+              ? 'Como manager, você visualiza todos os registros de todos os administradores'
+              : 'Você visualiza apenas os registros que você criou'
+            }
+          </p>
+        </div>
+        <Button
+          onClick={() => setShowModal(true)}
+          className="gap-2"
+        >
+          <PlusCircle className="w-4 h-4" /> Registrar Atividade
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="p-6">
+          <p className="text-sm font-medium text-text-secondary">
+            {usuarioLogado?.perfil === 'manager' ? 'Total de Registros' : 'Meus Registros'}
+          </p>
+          <p className="text-3xl font-bold text-text-primary mt-2">
+            {registros.length}
+          </p>
+        </Card>
+        <Card className="p-6">
+          <p className="text-sm font-medium text-text-secondary">
+            Registros Hoje
+          </p>
+          <p className="text-3xl font-bold text-accent-primary mt-2">
+            {registros.filter(r => {
+              const hoje = new Date().toDateString();
+              const regData = new Date(r.registradoEm).toDateString();
+              return hoje === regData;
+            }).length}
+          </p>
+        </Card>
+        <Card className="p-6">
+          <p className="text-sm font-medium text-text-secondary">
+            Esta Semana
+          </p>
+          <p className="text-3xl font-bold text-info mt-2">
+            {registros.filter(r => {
+              const agora = new Date();
+              const regData = new Date(r.registradoEm);
+              const diffDias = Math.floor((agora.getTime() - regData.getTime()) / (1000 * 60 * 60 * 24));
+              return diffDias <= 7;
+            }).length}
+          </p>
+        </Card>
+      </div>
+
+      {registros.length === 0 ? (
+        <Card className="p-12 text-center">
+          <div className="w-16 h-16 bg-accent-primary/10 rounded-sm flex items-center justify-center mx-auto mb-4">
+            <FileSpreadsheet className="w-8 h-8 text-accent-primary" />
+          </div>
+          <h3 className="text-lg font-semibold text-text-primary mb-2">
+            Nenhum registro ainda
+          </h3>
+          <p className="text-text-secondary mb-6">
+            Comece registrando atividades que foram solicitadas fora do portal
+          </p>
+          <Button onClick={() => setShowModal(true)} className="gap-2">
+            <PlusCircle className="w-4 h-4" /> Registrar Primeira Atividade
+          </Button>
+        </Card>
+      ) : (
+        <Card className="p-0 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-black/20 text-text-secondary">
+                <tr>
+                  <th className="px-6 py-3 font-medium">Chamado</th>
+                  <th className="px-6 py-3 font-medium">Solicitante</th>
+                  <th className="px-6 py-3 font-medium">Título</th>
+                  <th className="px-6 py-3 font-medium">Status</th>
+                  <th className="px-6 py-3 font-medium">Origem</th>
+                  <th className="px-6 py-3 font-medium">Registrado Por</th>
+                  <th className="px-6 py-3 font-medium">Data</th>
+                  <th className="px-6 py-3 font-medium">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-subtle">
+                {registros.map((registro) => {
+                  const solicitante = usuarios.find(u => u.id === registro.solicitanteId);
+                  return (
+                    <tr key={registro.id} className="hover:bg-white/5 transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="font-mono text-accent-primary font-medium">
+                          {registro.chamadoId}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          {solicitante && <Avatar usuario={solicitante} size="sm" />}
+                          <span className="font-medium text-text-primary">
+                            {registro.solicitanteNome}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-text-secondary max-w-xs truncate">
+                        {registro.titulo}
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge className={getStatusColor(registro.status || 'Aberto')}>
+                          {registro.status || 'Aberto'}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge className="bg-info/20 text-info">
+                          {registro.origem}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 text-text-secondary">
+                        {registro.registradoPor}
+                      </td>
+                      <td className="px-6 py-4 text-text-secondary">
+                        {new Date(registro.registradoEm).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => excluirRegistro(registro.id)}
+                          className="p-1.5 text-text-muted hover:text-danger transition-colors"
+                          title="Excluir Registro"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Modal de Registro */}
+      <AnimatePresence>
+        {showModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000]"
+              onClick={() => setShowModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-bg-surface border border-border-subtle rounded shadow-lg z-[2000] p-6 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-text-primary">
+                    Registrar Nova Atividade
+                  </h3>
+                  <p className="text-sm text-text-secondary mt-1">
+                    Registre um chamado que foi solicitado fora do portal
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="text-text-muted hover:text-text-primary"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">
+                    Solicitante *
+                  </label>
+                  <Select name="solicitante" required>
+                    <option value="">Selecione um usuário</option>
+                    {usuarios
+                      .filter(u => u.ativo)
+                      .sort((a, b) => a.nome.localeCompare(b.nome))
+                      .map(u => (
+                        <option key={u.id} value={u.id}>
+                          {u.nome} - {u.email} ({u.departamento})
+                        </option>
+                      ))}
+                  </Select>
+                  <p className="text-xs text-text-muted mt-1">
+                    Selecione o usuário que fez a solicitação
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">
+                    Título do Chamado *
+                  </label>
+                  <Input
+                    name="titulo"
+                    required
+                    placeholder="Ex: Problema com impressora"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">
+                    Descrição *
+                  </label>
+                  <textarea
+                    name="descricao"
+                    required
+                    placeholder="Descreva o problema ou solicitação..."
+                    className="w-full bg-bg-primary border border-border-subtle rounded px-4 py-2 text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary/50 transition-all resize-none"
+                    rows={4}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Prioridade *
+                    </label>
+                    <Select name="prioridade" required defaultValue="Médio">
+                      <option value="Baixo">Baixo</option>
+                      <option value="Médio">Médio</option>
+                      <option value="Alto">Alto</option>
+                      <option value="Crítico">Crítico</option>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Categoria *
+                    </label>
+                    <Select name="categoria" required defaultValue="Outros">
+                      <option value="Hardware">Hardware</option>
+                      <option value="Software">Software</option>
+                      <option value="Rede">Rede</option>
+                      <option value="Acesso">Acesso</option>
+                      <option value="Outros">Outros</option>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">
+                    Status Inicial *
+                  </label>
+                  <Select name="status" required defaultValue="Aberto">
+                    <option value="Aberto">Aberto</option>
+                    <option value="Em Andamento">Em Andamento</option>
+                    <option value="Aguardando Aprovação">Aguardando Aprovação</option>
+                    <option value="Aguardando">Aguardando</option>
+                    <option value="Resolvido">Resolvido</option>
+                    <option value="Fechado">Fechado</option>
+                  </Select>
+                  <p className="text-xs text-text-muted mt-1">
+                    Defina o status inicial do chamado
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">
+                    Origem da Solicitação *
+                  </label>
+                  <Select name="origem" required>
+                    <option value="">Selecione a origem</option>
+                    <option value="Pessoalmente">Pessoalmente</option>
+                    <option value="WhatsApp">WhatsApp</option>
+                    <option value="Telefone">Telefone</option>
+                    <option value="E-mail">E-mail</option>
+                    <option value="Teams">Teams</option>
+                    <option value="Slack">Slack</option>
+                    <option value="Outro">Outro</option>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">
+                    Anexos
+                  </label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                    className="hidden"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                  />
+                  <div 
+                    className={`border-2 border-dashed rounded p-6 text-center transition-all cursor-pointer ${
+                      dragActive 
+                        ? "border-accent-primary bg-accent-primary/5" 
+                        : "border-border-subtle hover:bg-white/5"
+                    }`}
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Paperclip className={`w-6 h-6 mx-auto mb-2 transition-colors ${dragActive ? "text-accent-primary" : "text-text-muted"}`} />
+                    <p className="text-sm text-text-secondary">
+                      Arraste e solte arquivos aqui, ou{" "}
+                      <span className="text-accent-primary">
+                        clique para selecionar
+                      </span>
+                    </p>
+                    <p className="text-xs text-text-muted mt-1">
+                      Imagens, PDFs, documentos • Máx. 5MB por arquivo
+                    </p>
+                  </div>
+
+                  {anexos.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {anexos.map((file, index) => {
+                        const isImage = isImageFile(file.type);
+                        const fileIcon = getFileIcon(file.type, file.name);
+                        
+                        return (
+                          <div key={index} className="flex items-center justify-between p-3 bg-bg-surface border border-border-subtle rounded group">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              {isImage ? (
+                                <div className="w-10 h-10 rounded overflow-hidden bg-bg-primary border border-border-subtle shrink-0">
+                                  <img
+                                    src={URL.createObjectURL(file)}
+                                    alt={file.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-10 h-10 rounded bg-accent-primary/10 flex items-center justify-center text-accent-primary shrink-0">
+                                  <span className="text-base">{fileIcon}</span>
+                                </div>
+                              )}
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-sm text-text-primary truncate font-medium">{file.name}</span>
+                                <span className="text-[10px] text-text-muted">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removerAnexo(index);
+                              }}
+                              className="p-1 text-text-muted hover:text-danger hover:bg-danger/10 rounded transition-colors"
+                              title="Remover arquivo"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">
+                    Observações Adicionais
+                  </label>
+                  <textarea
+                    name="observacoes"
+                    placeholder="Informações adicionais sobre o registro (opcional)..."
+                    className="w-full bg-bg-primary border border-border-subtle rounded px-4 py-2 text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary/50 transition-all resize-none"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="pt-4 flex justify-end gap-3 border-t border-border-subtle">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setShowModal(false);
+                      setAnexos([]);
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit">
+                    Registrar Chamado
                   </Button>
                 </div>
               </form>
@@ -2222,7 +2807,57 @@ function ModalGerarRelatorio({ onFechar, tickets, showToast }: { onFechar: () =>
 const Reports = () => {
   const { tickets } = useTickets();
   const { showToast } = useAppContext();
+  const { usuarios } = useAuth();
   const [modalRelatorioAberto, setModalRelatorioAberto] = useState(false);
+  const [adminSelecionado, setAdminSelecionado] = useState<string | null>(null);
+  const [mostrarDetalhesRegistros, setMostrarDetalhesRegistros] = useState(false);
+
+  // Carregar registros de atividades
+  const registrosAtividades = useMemo(() => {
+    const saved = localStorage.getItem('mb_activity_log');
+    return saved ? JSON.parse(saved) : [];
+  }, []);
+
+  // Calcular registros por admin
+  const registrosPorAdmin = useMemo(() => {
+    const contagem: Record<string, { nome: string; total: number; registros: any[] }> = {};
+    
+    registrosAtividades.forEach((registro: any) => {
+      const registrador = registro.registradoPor;
+      if (!contagem[registrador]) {
+        contagem[registrador] = {
+          nome: registrador,
+          total: 0,
+          registros: []
+        };
+      }
+      contagem[registrador].total++;
+      contagem[registrador].registros.push(registro);
+    });
+
+    return Object.values(contagem).sort((a, b) => b.total - a.total);
+  }, [registrosAtividades]);
+
+  // Dados para o gráfico
+  const dadosGraficoRegistros = registrosPorAdmin.map((admin, index) => ({
+    name: admin.nome.split(' ')[0], // Primeiro nome
+    value: admin.total,
+    color: ['#8B5CF6', '#a78bfa', '#34d399', '#fbbf24', '#f87171', '#818cf8'][index % 6],
+    nomeCompleto: admin.nome
+  }));
+
+  const handleClickGraficoRegistros = (data: any) => {
+    if (data && data.nomeCompleto) {
+      setAdminSelecionado(data.nomeCompleto);
+      setMostrarDetalhesRegistros(true);
+    }
+  };
+
+  const registrosDoAdminSelecionado = useMemo(() => {
+    if (!adminSelecionado) return [];
+    const admin = registrosPorAdmin.find(a => a.nome === adminSelecionado);
+    return admin ? admin.registros : [];
+  }, [adminSelecionado, registrosPorAdmin]);
 
   const categoryCount = tickets.reduce(
     (acc, t) => {
@@ -2467,6 +3102,96 @@ const Reports = () => {
           </div>
         </Card>
 
+        {registrosPorAdmin.length > 0 && (
+          <Card className="p-6">
+            <h3 className="text-lg font-medium text-text-primary mb-2">
+              Registros de Atividades por Admin
+            </h3>
+            <p className="text-sm text-text-secondary mb-6">
+              Chamados registrados manualmente por cada administrador
+            </p>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={dadosGraficoRegistros}
+                  margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="var(--color-border-subtle)"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="name"
+                    stroke="var(--color-text-muted)"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="var(--color-text-muted)"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "var(--color-bg-surface)",
+                      borderColor: "var(--color-border-subtle)",
+                      borderRadius: "8px",
+                      color: "#fff",
+                    }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-bg-surface border border-border-subtle rounded p-3 shadow-lg">
+                            <p className="text-text-primary font-medium mb-1">{data.nomeCompleto}</p>
+                            <p className="text-accent-primary">
+                              <span className="font-semibold">{data.value}</span> registro{data.value !== 1 ? 's' : ''}
+                            </p>
+                            <p className="text-xs text-text-muted mt-2">Clique para ver detalhes</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                    cursor={{ fill: "rgba(139, 92, 246, 0.05)" }}
+                  />
+                  <Bar 
+                    dataKey="value" 
+                    radius={[4, 4, 0, 0]}
+                    onClick={handleClickGraficoRegistros}
+                    cursor="pointer"
+                  >
+                    {dadosGraficoRegistros.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex justify-center gap-4 mt-4 flex-wrap">
+              {registrosPorAdmin.map((admin, index) => (
+                <button
+                  key={admin.nome}
+                  onClick={() => {
+                    setAdminSelecionado(admin.nome);
+                    setMostrarDetalhesRegistros(true);
+                  }}
+                  className="flex items-center gap-2 text-sm text-text-secondary hover:text-accent-primary transition-colors cursor-pointer"
+                >
+                  <div
+                    className="w-3 h-3 rounded-sm"
+                    style={{ backgroundColor: dadosGraficoRegistros[index].color }}
+                  ></div>
+                  {admin.nome} ({admin.total})
+                </button>
+              ))}
+            </div>
+          </Card>
+        )}
+
         <Card className="p-6 lg:col-span-2">
           <h3 className="text-lg font-medium text-text-primary mb-6">
             Tempo Médio de Resolução (Horas)
@@ -2538,6 +3263,133 @@ const Reports = () => {
           </div>
         </Card>
       </div>
+
+      {/* Modal de Detalhes dos Registros */}
+      <AnimatePresence>
+        {mostrarDetalhesRegistros && adminSelecionado && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000]"
+              onClick={() => setMostrarDetalhesRegistros(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-5xl max-h-[90vh] bg-bg-surface border border-border-subtle rounded shadow-lg z-[2000] flex flex-col"
+            >
+              <div className="flex justify-between items-center p-6 border-b border-border-subtle">
+                <div>
+                  <h3 className="text-xl font-bold text-text-primary">
+                    Registros de {adminSelecionado}
+                  </h3>
+                  <p className="text-sm text-text-secondary mt-1">
+                    {registrosDoAdminSelecionado.length} registro{registrosDoAdminSelecionado.length !== 1 ? 's' : ''} de atividade{registrosDoAdminSelecionado.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setMostrarDetalhesRegistros(false)}
+                  className="text-text-muted hover:text-text-primary"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6">
+                {registrosDoAdminSelecionado.length === 0 ? (
+                  <div className="text-center py-12">
+                    <FileSpreadsheet className="w-16 h-16 mx-auto mb-4 text-text-muted opacity-50" />
+                    <p className="text-text-secondary">Nenhum registro encontrado</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {registrosDoAdminSelecionado.map((registro: any) => {
+                      const solicitante = usuarios.find(u => u.id === registro.solicitanteId);
+                      return (
+                        <Card key={registro.id} className="p-5 hover:border-accent-primary/30 transition-colors">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-sm bg-accent-primary/20 flex items-center justify-center">
+                                <Ticket className="w-5 h-5 text-accent-primary" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-accent-primary font-semibold">
+                                    {registro.chamadoId}
+                                  </span>
+                                  <Badge className={getStatusColor(registro.status || 'Aberto')}>
+                                    {registro.status || 'Aberto'}
+                                  </Badge>
+                                </div>
+                                <h4 className="text-base font-semibold text-text-primary mt-1">
+                                  {registro.titulo}
+                                </h4>
+                              </div>
+                            </div>
+                            <span className="text-xs text-text-muted">
+                              {new Date(registro.registradoEm).toLocaleString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <p className="text-text-muted text-xs mb-1">Solicitante</p>
+                              <div className="flex items-center gap-2">
+                                {solicitante && <Avatar usuario={solicitante} size="sm" />}
+                                <span className="text-text-primary font-medium">
+                                  {registro.solicitanteNome}
+                                </span>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-text-muted text-xs mb-1">Origem</p>
+                              <Badge className="bg-info/20 text-info">
+                                {registro.origem}
+                              </Badge>
+                            </div>
+                            {registro.anexos > 0 && (
+                              <div>
+                                <p className="text-text-muted text-xs mb-1">Anexos</p>
+                                <div className="flex items-center gap-1 text-text-primary">
+                                  <Paperclip className="w-4 h-4" />
+                                  <span className="font-medium">{registro.anexos}</span>
+                                </div>
+                              </div>
+                            )}
+                            {registro.observacoes && (
+                              <div className="col-span-2 md:col-span-4">
+                                <p className="text-text-muted text-xs mb-1">Observações</p>
+                                <p className="text-text-secondary text-sm">
+                                  {registro.observacoes}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 border-t border-border-subtle flex justify-end">
+                <Button onClick={() => setMostrarDetalhesRegistros(false)}>
+                  Fechar
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
@@ -4682,6 +5534,17 @@ const USUARIOS_INICIAIS: Usuario[] = [
     ativo: true,
     criadoEm: new Date("2024-03-05").toISOString(),
   },
+  {
+    id: "u004",
+    nome: "Carlos Mendes",
+    email: "carlos.mendes@montebravo.com.br",
+    senha: "manager123",
+    perfil: "manager",
+    departamento: "Gestão",
+    avatar: "CM",
+    ativo: true,
+    criadoEm: new Date("2024-01-10").toISOString(),
+  },
 ];
 
 interface LogExclusao {
@@ -5076,20 +5939,26 @@ export const TicketProvider = ({ children }: { children: React.ReactNode }) => {
     }));
   };
 
-  const criarChamado = (dados: Partial<TicketData>) => {
+  const criarChamado = (dados: Partial<TicketData> & { solicitanteId?: string; solicitanteNome?: string; solicitanteEmail?: string }) => {
     const maxId = tickets.reduce((max, t) => {
       const num = parseInt(t.id.replace('TKT-', ''), 10);
       return isNaN(num) ? max : Math.max(max, num);
     }, 0);
     const newId = `TKT-${String(maxId + 1).padStart(4, "0")}`;
+    
+    // Se solicitanteId foi fornecido, usar ele; caso contrário, usar o usuário logado
+    const solicitanteId = dados.solicitanteId || usuarioLogado?.id;
+    const solicitanteNome = dados.solicitanteNome || usuarioLogado?.nome || "Usuário";
+    const solicitanteEmail = dados.solicitanteEmail || usuarioLogado?.email;
+    
     const newTicket: TicketData = {
       id: newId,
       title: dados.title || "Novo Chamado",
-      requester: usuarioLogado?.nome || "Usuário",
-      solicitanteId: usuarioLogado?.id,
-      email: usuarioLogado?.email,
+      requester: solicitanteNome,
+      solicitanteId: solicitanteId,
+      email: solicitanteEmail,
       priority: dados.priority || "Médio",
-      status: "Aberto",
+      status: dados.status || "Aberto",
       category: dados.category || "Outros",
       assignee: "Não atribuído",
       created: "Agora mesmo",
@@ -5104,7 +5973,7 @@ export const TicketProvider = ({ children }: { children: React.ReactNode }) => {
     criarNotificacao({
       tipo: 'chamado_criado',
       titulo: 'Novo chamado aberto',
-      mensagem: `${newTicket.id} — "${newTicket.title}" por ${usuarioLogado?.nome}`,
+      mensagem: `${newTicket.id} — "${newTicket.title}" por ${solicitanteNome}`,
       linkTipo: 'chamado',
       linkId: newTicket.id,
       destinatarios: ['admin']
@@ -6060,12 +6929,13 @@ function MainApp() {
   }
 
   const navItems =
-    usuarioLogado.perfil === "admin"
+    usuarioLogado.perfil === "admin" || usuarioLogado.perfil === "manager"
       ? [
           { id: "dashboard", label: "Painel", icon: Home },
           { id: "my-tickets", label: "Meus Chamados", icon: Ticket },
           { id: "new-ticket", label: "Novo Chamado", icon: PlusCircle },
           { id: "all-tickets", label: "Todos os Chamados", icon: List },
+          { id: "activity-log", label: "Registro de Atividades", icon: FileSpreadsheet },
           { id: "kb", label: "Base de Conhecimento", icon: BookOpen },
           { id: "reports", label: "Relatórios", icon: BarChart2 },
           { id: "users", label: "Usuários", icon: User },
@@ -6194,7 +7064,7 @@ function MainApp() {
         <div className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="max-w-6xl mx-auto">
             {currentView === "dashboard" &&
-              (usuarioLogado.perfil === "admin" ? (
+              (usuarioLogado.perfil === "admin" || usuarioLogado.perfil === "manager" ? (
                 <DashboardView onOpenTicket={setTicketAtivo} setCurrentView={setCurrentView} />
               ) : (
                 <AcessoNegado />
@@ -6208,12 +7078,18 @@ function MainApp() {
               />
             )}
             {currentView === "all-tickets" &&
-              (usuarioLogado.perfil === "admin" ? (
+              (usuarioLogado.perfil === "admin" || usuarioLogado.perfil === "manager" ? (
                 <AllTicketsView 
                   onOpenTicket={setTicketAtivo} 
                   selectedTickets={selectedTickets}
                   setSelectedTickets={setSelectedTickets}
                 />
+              ) : (
+                <AcessoNegado />
+              ))}
+            {currentView === "activity-log" &&
+              (usuarioLogado.perfil === "admin" || usuarioLogado.perfil === "manager" ? (
+                <ActivityLogView />
               ) : (
                 <AcessoNegado />
               ))}
@@ -6237,13 +7113,13 @@ function MainApp() {
             )}
             {currentView === "kb" && <KnowledgeBaseView />}
             {currentView === "reports" &&
-              (usuarioLogado.perfil === "admin" ? (
+              (usuarioLogado.perfil === "admin" || usuarioLogado.perfil === "manager" ? (
                 <Reports />
               ) : (
                 <AcessoNegado />
               ))}
             {currentView === "users" &&
-              (usuarioLogado.perfil === "admin" ? (
+              (usuarioLogado.perfil === "admin" || usuarioLogado.perfil === "manager" ? (
                 <UsuariosView />
               ) : (
                 <AcessoNegado />
