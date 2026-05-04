@@ -145,6 +145,8 @@ ServiceDeskMB/
 
 ## ▶️ Como Executar
 
+### 🏠 Desenvolvimento Local
+
 ```bash
 # 1. Clonar o repositório
 git clone https://github.com/gjrzz/ServiceDeskMB.git
@@ -170,18 +172,60 @@ npm run build
 npm run preview
 ```
 
+### 🚀 Deploy em Produção
+
+O sistema está pronto para deploy com backend no Railway e frontend no GitHub Pages.
+
+**📖 Guia Completo de Deploy:**
+1. **Comece aqui:** [`INICIO_AQUI.md`](./INICIO_AQUI.md) — Guia rápido visual
+2. **Deploy Backend:** [`GUIA_RAILWAY_DEPLOY.md`](./GUIA_RAILWAY_DEPLOY.md) — Passo a passo do Railway
+3. **Atualizar URL:** [`COMO_ATUALIZAR_URL_RAILWAY.md`](./COMO_ATUALIZAR_URL_RAILWAY.md) — Como configurar a API
+4. **Checklist:** [`RAILWAY_CHECKLIST.md`](./RAILWAY_CHECKLIST.md) — Não esqueça nada
+5. **Resumo Técnico:** [`RESUMO_CONFIGURACAO_API.md`](./RESUMO_CONFIGURACAO_API.md) — Detalhes da configuração
+
+**⚡ Resumo Ultra-Rápido:**
+```bash
+# 1. Deploy backend no Railway (https://railway.app)
+# 2. Copie a URL gerada
+# 3. Atualize src/config/api.ts linha 14
+# 4. Build e deploy do frontend
+npm run build
+```
+
+**Tempo estimado:** 30-40 minutos
+
 ---
 
 ## 🗺️ Roadmap
 
-- [ ] Backend real com Node.js + Express
-- [ ] Banco de dados PostgreSQL
+### ✅ Concluído
+- [x] Frontend completo com React + TypeScript
+- [x] Sistema de autenticação e perfis
+- [x] Gestão completa de chamados com filas segregadas
+- [x] Dashboard com métricas e gráficos
+- [x] Base de conhecimento com Markdown
+- [x] Sistema de notificações
+- [x] Pesquisa de satisfação
+- [x] Relatórios com exportação CSV/XLSX
+- [x] Backend com Node.js + Express + Prisma
+- [x] Banco de dados PostgreSQL
+- [x] API REST completa
+- [x] Configuração para deploy no Railway
+- [x] Documentação completa de deploy
+
+### 🚧 Em Desenvolvimento
+- [ ] Testes automatizados (Jest + React Testing Library)
+- [ ] CI/CD com GitHub Actions
+
+### 📋 Próximas Features
 - [ ] Autenticação via Microsoft Entra ID (OAuth 2.0)
 - [ ] Integração com Microsoft Teams (notificações)
-- [ ] Deploy no Azure App Service
-- [ ] Suporte a anexos reais (Azure Blob Storage)
+- [ ] Suporte a anexos reais (Railway Storage ou S3)
 - [ ] SLA com horário comercial (desconta fins de semana e feriados)
 - [ ] App mobile (React Native)
+- [ ] Websockets para notificações em tempo real
+- [ ] Sistema de templates de resposta
+- [ ] Automação de atribuição de chamados
 
 ---
 
