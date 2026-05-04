@@ -16,6 +16,7 @@ datasource db {
 enum Perfil {
   ADMIN
   USUARIO
+  MANAGER
 }
 
 model Usuario {

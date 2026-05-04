@@ -187,7 +187,7 @@ type Status =
   | "Contestado";
 type Category = "Hardware" | "Software" | "Rede" | "Acesso" | "Outros";
 
-type Perfil = "admin" | "usuario";
+type Perfil = "admin" | "usuario" | "manager";
 
 interface Usuario {
   id: string;
@@ -1261,6 +1261,7 @@ const UsuariosView = () => {
   const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   const admins = usuarios.filter((u) => u.perfil === "admin").length;
+  const managers = usuarios.filter((u) => u.perfil === "manager").length;
   const inativos = usuarios.filter((u) => !u.ativo).length;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1328,7 +1329,7 @@ const UsuariosView = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <Card className="p-6">
           <p className="text-sm font-medium text-text-secondary">
             Total de Usuários
@@ -1343,6 +1344,14 @@ const UsuariosView = () => {
           </p>
           <p className="text-3xl font-bold text-accent-primary mt-2">
             {admins}
+          </p>
+        </Card>
+        <Card className="p-6">
+          <p className="text-sm font-medium text-text-secondary">
+            Managers
+          </p>
+          <p className="text-3xl font-bold text-warning mt-2">
+            {managers}
           </p>
         </Card>
         <Card className="p-6">
@@ -1389,10 +1398,12 @@ const UsuariosView = () => {
                       className={
                         u.perfil === "admin"
                           ? "bg-accent-primary/20 text-accent-primary"
+                          : u.perfil === "manager"
+                          ? "bg-warning/20 text-warning"
                           : "bg-white/10 text-text-secondary"
                       }
                     >
-                      {u.perfil === "admin" ? "Admin" : "Usuário"}
+                      {u.perfil === "admin" ? "Admin" : u.perfil === "manager" ? "Manager" : "Usuário"}
                     </Badge>
                   </td>
                   <td className="px-6 py-4 text-text-secondary">
@@ -1557,6 +1568,7 @@ const UsuariosView = () => {
                     >
                       <option value="usuario">Usuário Padrão</option>
                       <option value="admin">Administrador</option>
+                      <option value="manager">Manager</option>
                     </Select>
                   </div>
                 </div>
@@ -1636,18 +1648,40 @@ const ActivityLogView = () => {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Carregar registros do localStorage
+  // Carregar registros do localStorage e filtrar pelo usuário logado (exceto managers)
   useEffect(() => {
     const saved = localStorage.getItem('mb_activity_log');
     if (saved) {
-      setRegistros(JSON.parse(saved));
+      const todosRegistros = JSON.parse(saved);
+      
+      // Managers veem todos os registros, admins veem apenas os seus
+      if (usuarioLogado?.perfil === 'manager') {
+        setRegistros(todosRegistros);
+      } else {
+        // Filtrar apenas os registros criados pelo usuário logado
+        const registrosFiltrados = todosRegistros.filter(
+          (registro: any) => registro.registradoPor === usuarioLogado?.nome
+        );
+        setRegistros(registrosFiltrados);
+      }
     }
-  }, []);
+  }, [usuarioLogado]);
 
-  // Salvar registros no localStorage
+  // Salvar registros no localStorage (mantendo registros de outros usuários)
   const salvarRegistros = (novosRegistros: any[]) => {
+    const saved = localStorage.getItem('mb_activity_log');
+    const todosRegistros = saved ? JSON.parse(saved) : [];
+    
+    // Remover registros antigos do usuário atual
+    const registrosOutrosUsuarios = todosRegistros.filter(
+      (registro: any) => registro.registradoPor !== usuarioLogado?.nome
+    );
+    
+    // Adicionar novos registros do usuário atual
+    const registrosAtualizados = [...registrosOutrosUsuarios, ...novosRegistros];
+    
+    localStorage.setItem('mb_activity_log', JSON.stringify(registrosAtualizados));
     setRegistros(novosRegistros);
-    localStorage.setItem('mb_activity_log', JSON.stringify(novosRegistros));
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -1778,6 +1812,12 @@ const ActivityLogView = () => {
           <p className="text-text-secondary mt-1">
             Registre chamados que foram solicitados fora do portal (pessoalmente, mensagem, telefone, etc.)
           </p>
+          <p className="text-xs text-text-muted mt-1">
+            {usuarioLogado?.perfil === 'manager' 
+              ? 'Como manager, você visualiza todos os registros de todos os administradores'
+              : 'Você visualiza apenas os registros que você criou'
+            }
+          </p>
         </div>
         <Button
           onClick={() => setShowModal(true)}
@@ -1790,7 +1830,7 @@ const ActivityLogView = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6">
           <p className="text-sm font-medium text-text-secondary">
-            Total de Registros
+            {usuarioLogado?.perfil === 'manager' ? 'Total de Registros' : 'Meus Registros'}
           </p>
           <p className="text-3xl font-bold text-text-primary mt-2">
             {registros.length}
@@ -2767,7 +2807,57 @@ function ModalGerarRelatorio({ onFechar, tickets, showToast }: { onFechar: () =>
 const Reports = () => {
   const { tickets } = useTickets();
   const { showToast } = useAppContext();
+  const { usuarios } = useAuth();
   const [modalRelatorioAberto, setModalRelatorioAberto] = useState(false);
+  const [adminSelecionado, setAdminSelecionado] = useState<string | null>(null);
+  const [mostrarDetalhesRegistros, setMostrarDetalhesRegistros] = useState(false);
+
+  // Carregar registros de atividades
+  const registrosAtividades = useMemo(() => {
+    const saved = localStorage.getItem('mb_activity_log');
+    return saved ? JSON.parse(saved) : [];
+  }, []);
+
+  // Calcular registros por admin
+  const registrosPorAdmin = useMemo(() => {
+    const contagem: Record<string, { nome: string; total: number; registros: any[] }> = {};
+    
+    registrosAtividades.forEach((registro: any) => {
+      const registrador = registro.registradoPor;
+      if (!contagem[registrador]) {
+        contagem[registrador] = {
+          nome: registrador,
+          total: 0,
+          registros: []
+        };
+      }
+      contagem[registrador].total++;
+      contagem[registrador].registros.push(registro);
+    });
+
+    return Object.values(contagem).sort((a, b) => b.total - a.total);
+  }, [registrosAtividades]);
+
+  // Dados para o gráfico
+  const dadosGraficoRegistros = registrosPorAdmin.map((admin, index) => ({
+    name: admin.nome.split(' ')[0], // Primeiro nome
+    value: admin.total,
+    color: ['#8B5CF6', '#a78bfa', '#34d399', '#fbbf24', '#f87171', '#818cf8'][index % 6],
+    nomeCompleto: admin.nome
+  }));
+
+  const handleClickGraficoRegistros = (data: any) => {
+    if (data && data.nomeCompleto) {
+      setAdminSelecionado(data.nomeCompleto);
+      setMostrarDetalhesRegistros(true);
+    }
+  };
+
+  const registrosDoAdminSelecionado = useMemo(() => {
+    if (!adminSelecionado) return [];
+    const admin = registrosPorAdmin.find(a => a.nome === adminSelecionado);
+    return admin ? admin.registros : [];
+  }, [adminSelecionado, registrosPorAdmin]);
 
   const categoryCount = tickets.reduce(
     (acc, t) => {
@@ -3012,6 +3102,96 @@ const Reports = () => {
           </div>
         </Card>
 
+        {registrosPorAdmin.length > 0 && (
+          <Card className="p-6">
+            <h3 className="text-lg font-medium text-text-primary mb-2">
+              Registros de Atividades por Admin
+            </h3>
+            <p className="text-sm text-text-secondary mb-6">
+              Chamados registrados manualmente por cada administrador
+            </p>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={dadosGraficoRegistros}
+                  margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="var(--color-border-subtle)"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="name"
+                    stroke="var(--color-text-muted)"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="var(--color-text-muted)"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "var(--color-bg-surface)",
+                      borderColor: "var(--color-border-subtle)",
+                      borderRadius: "8px",
+                      color: "#fff",
+                    }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-bg-surface border border-border-subtle rounded p-3 shadow-lg">
+                            <p className="text-text-primary font-medium mb-1">{data.nomeCompleto}</p>
+                            <p className="text-accent-primary">
+                              <span className="font-semibold">{data.value}</span> registro{data.value !== 1 ? 's' : ''}
+                            </p>
+                            <p className="text-xs text-text-muted mt-2">Clique para ver detalhes</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                    cursor={{ fill: "rgba(139, 92, 246, 0.05)" }}
+                  />
+                  <Bar 
+                    dataKey="value" 
+                    radius={[4, 4, 0, 0]}
+                    onClick={handleClickGraficoRegistros}
+                    cursor="pointer"
+                  >
+                    {dadosGraficoRegistros.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex justify-center gap-4 mt-4 flex-wrap">
+              {registrosPorAdmin.map((admin, index) => (
+                <button
+                  key={admin.nome}
+                  onClick={() => {
+                    setAdminSelecionado(admin.nome);
+                    setMostrarDetalhesRegistros(true);
+                  }}
+                  className="flex items-center gap-2 text-sm text-text-secondary hover:text-accent-primary transition-colors cursor-pointer"
+                >
+                  <div
+                    className="w-3 h-3 rounded-sm"
+                    style={{ backgroundColor: dadosGraficoRegistros[index].color }}
+                  ></div>
+                  {admin.nome} ({admin.total})
+                </button>
+              ))}
+            </div>
+          </Card>
+        )}
+
         <Card className="p-6 lg:col-span-2">
           <h3 className="text-lg font-medium text-text-primary mb-6">
             Tempo Médio de Resolução (Horas)
@@ -3083,6 +3263,133 @@ const Reports = () => {
           </div>
         </Card>
       </div>
+
+      {/* Modal de Detalhes dos Registros */}
+      <AnimatePresence>
+        {mostrarDetalhesRegistros && adminSelecionado && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000]"
+              onClick={() => setMostrarDetalhesRegistros(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-5xl max-h-[90vh] bg-bg-surface border border-border-subtle rounded shadow-lg z-[2000] flex flex-col"
+            >
+              <div className="flex justify-between items-center p-6 border-b border-border-subtle">
+                <div>
+                  <h3 className="text-xl font-bold text-text-primary">
+                    Registros de {adminSelecionado}
+                  </h3>
+                  <p className="text-sm text-text-secondary mt-1">
+                    {registrosDoAdminSelecionado.length} registro{registrosDoAdminSelecionado.length !== 1 ? 's' : ''} de atividade{registrosDoAdminSelecionado.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setMostrarDetalhesRegistros(false)}
+                  className="text-text-muted hover:text-text-primary"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6">
+                {registrosDoAdminSelecionado.length === 0 ? (
+                  <div className="text-center py-12">
+                    <FileSpreadsheet className="w-16 h-16 mx-auto mb-4 text-text-muted opacity-50" />
+                    <p className="text-text-secondary">Nenhum registro encontrado</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {registrosDoAdminSelecionado.map((registro: any) => {
+                      const solicitante = usuarios.find(u => u.id === registro.solicitanteId);
+                      return (
+                        <Card key={registro.id} className="p-5 hover:border-accent-primary/30 transition-colors">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-sm bg-accent-primary/20 flex items-center justify-center">
+                                <Ticket className="w-5 h-5 text-accent-primary" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-accent-primary font-semibold">
+                                    {registro.chamadoId}
+                                  </span>
+                                  <Badge className={getStatusColor(registro.status || 'Aberto')}>
+                                    {registro.status || 'Aberto'}
+                                  </Badge>
+                                </div>
+                                <h4 className="text-base font-semibold text-text-primary mt-1">
+                                  {registro.titulo}
+                                </h4>
+                              </div>
+                            </div>
+                            <span className="text-xs text-text-muted">
+                              {new Date(registro.registradoEm).toLocaleString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <p className="text-text-muted text-xs mb-1">Solicitante</p>
+                              <div className="flex items-center gap-2">
+                                {solicitante && <Avatar usuario={solicitante} size="sm" />}
+                                <span className="text-text-primary font-medium">
+                                  {registro.solicitanteNome}
+                                </span>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-text-muted text-xs mb-1">Origem</p>
+                              <Badge className="bg-info/20 text-info">
+                                {registro.origem}
+                              </Badge>
+                            </div>
+                            {registro.anexos > 0 && (
+                              <div>
+                                <p className="text-text-muted text-xs mb-1">Anexos</p>
+                                <div className="flex items-center gap-1 text-text-primary">
+                                  <Paperclip className="w-4 h-4" />
+                                  <span className="font-medium">{registro.anexos}</span>
+                                </div>
+                              </div>
+                            )}
+                            {registro.observacoes && (
+                              <div className="col-span-2 md:col-span-4">
+                                <p className="text-text-muted text-xs mb-1">Observações</p>
+                                <p className="text-text-secondary text-sm">
+                                  {registro.observacoes}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 border-t border-border-subtle flex justify-end">
+                <Button onClick={() => setMostrarDetalhesRegistros(false)}>
+                  Fechar
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
@@ -5227,6 +5534,17 @@ const USUARIOS_INICIAIS: Usuario[] = [
     ativo: true,
     criadoEm: new Date("2024-03-05").toISOString(),
   },
+  {
+    id: "u004",
+    nome: "Carlos Mendes",
+    email: "carlos.mendes@montebravo.com.br",
+    senha: "manager123",
+    perfil: "manager",
+    departamento: "Gestão",
+    avatar: "CM",
+    ativo: true,
+    criadoEm: new Date("2024-01-10").toISOString(),
+  },
 ];
 
 interface LogExclusao {
@@ -6611,7 +6929,7 @@ function MainApp() {
   }
 
   const navItems =
-    usuarioLogado.perfil === "admin"
+    usuarioLogado.perfil === "admin" || usuarioLogado.perfil === "manager"
       ? [
           { id: "dashboard", label: "Painel", icon: Home },
           { id: "my-tickets", label: "Meus Chamados", icon: Ticket },
@@ -6746,7 +7064,7 @@ function MainApp() {
         <div className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="max-w-6xl mx-auto">
             {currentView === "dashboard" &&
-              (usuarioLogado.perfil === "admin" ? (
+              (usuarioLogado.perfil === "admin" || usuarioLogado.perfil === "manager" ? (
                 <DashboardView onOpenTicket={setTicketAtivo} setCurrentView={setCurrentView} />
               ) : (
                 <AcessoNegado />
@@ -6760,7 +7078,7 @@ function MainApp() {
               />
             )}
             {currentView === "all-tickets" &&
-              (usuarioLogado.perfil === "admin" ? (
+              (usuarioLogado.perfil === "admin" || usuarioLogado.perfil === "manager" ? (
                 <AllTicketsView 
                   onOpenTicket={setTicketAtivo} 
                   selectedTickets={selectedTickets}
@@ -6770,7 +7088,7 @@ function MainApp() {
                 <AcessoNegado />
               ))}
             {currentView === "activity-log" &&
-              (usuarioLogado.perfil === "admin" ? (
+              (usuarioLogado.perfil === "admin" || usuarioLogado.perfil === "manager" ? (
                 <ActivityLogView />
               ) : (
                 <AcessoNegado />
@@ -6795,13 +7113,13 @@ function MainApp() {
             )}
             {currentView === "kb" && <KnowledgeBaseView />}
             {currentView === "reports" &&
-              (usuarioLogado.perfil === "admin" ? (
+              (usuarioLogado.perfil === "admin" || usuarioLogado.perfil === "manager" ? (
                 <Reports />
               ) : (
                 <AcessoNegado />
               ))}
             {currentView === "users" &&
-              (usuarioLogado.perfil === "admin" ? (
+              (usuarioLogado.perfil === "admin" || usuarioLogado.perfil === "manager" ? (
                 <UsuariosView />
               ) : (
                 <AcessoNegado />
