@@ -7986,8 +7986,16 @@ export default function App() {
     message: string,
     type: "success" | "info" | "error" = "success",
   ) => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    // Limpar toast anterior se existir
+    if (toast) {
+      setToast(null);
+    }
+    
+    // Pequeno delay para garantir que o toast anterior foi limpo
+    setTimeout(() => {
+      setToast({ message, type });
+      setTimeout(() => setToast(null), 3000);
+    }, 50);
   };
 
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>(() => {
