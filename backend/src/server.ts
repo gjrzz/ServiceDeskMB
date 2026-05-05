@@ -90,6 +90,24 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Endpoint temporário para resetar senha do admin (REMOVER EM PRODUÇÃO)
+app.post('/api/reset-admin', async (req, res) => {
+  try {
+    const bcrypt = require('bcryptjs');
+    const senhaHash = await bcrypt.hash('123456', 10);
+    
+    const admin = await prisma.usuario.update({
+      where: { email: 'gabriel@montebravo.com.br' },
+      data: { senha: senhaHash },
+    });
+    
+    res.json({ message: 'Senha do admin resetada para 123456', admin: admin.email });
+  } catch (error) {
+    console.error('Erro ao resetar senha:', error);
+    res.status(500).json({ error: 'Erro ao resetar senha' });
+  }
+});
+
 // Rotas da API
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
