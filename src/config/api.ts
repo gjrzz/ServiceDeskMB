@@ -23,7 +23,7 @@ const LOCAL_API_URL = 'http://localhost:3001';
 // ========================================
 
 // Detecta automaticamente se está em produção ou desenvolvimento
-export const API_URL = (import.meta as any).env?.PROD 
+export const API_URL = window.location.hostname === 'gjrzz.github.io'
   ? RAILWAY_API_URL  // Produção (GitHub Pages)
   : LOCAL_API_URL;   // Desenvolvimento (localhost)
 
