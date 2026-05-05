@@ -26,6 +26,13 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ============================================
+// CONFIGURAÇÃO DE PROXY (Railway/Heroku)
+// ============================================
+
+// Confiar no proxy reverso (necessário para Railway, Heroku, etc.)
+app.set('trust proxy', 1);
+
+// ============================================
 // MIDDLEWARES
 // ============================================
 
