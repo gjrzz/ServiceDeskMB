@@ -35,7 +35,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "http://localhost:3000", "http://localhost:5173"], // Permitir imagens do frontend
+      imgSrc: ["'self'", "data:", "http://localhost:3000", "http://localhost:5173", "https://gjrzz.github.io"], // Permitir imagens do frontend
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
     },
@@ -48,6 +48,7 @@ app.use(cors({
     'http://localhost:5173', // Desenvolvimento local (Vite padrão)
     'http://localhost:3000', // Desenvolvimento local (porta customizada)
     'https://gjrzz.github.io', // GitHub Pages
+    'https://gjrzz.github.io/ServiceDeskMB', // GitHub Pages com caminho específico
   ],
   credentials: true,
 }));
