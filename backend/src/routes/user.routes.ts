@@ -25,8 +25,8 @@ const updateUserSchema = z.object({
   nome: z.string().min(3).optional(),
   email: z.string().email().optional(),
   departamento: z.string().min(2).optional(),
-  perfil: z.enum(['ADMIN', 'USUARIO']).optional(),
-  avatarUrl: z.string().url().nullable().optional(),
+  perfil: z.enum(['ADMIN', 'USUARIO', 'MANAGER']).optional(),
+  avatarUrl: z.string().nullable().optional(), // Removido .url() para aceitar caminhos relativos
 });
 
 // ============================================
@@ -273,6 +273,47 @@ router.post('/:id/change-password', async (req: AuthRequest, res) => {
   } catch (error) {
     console.error('Erro ao alterar senha:', error);
     res.status(500).json({ error: 'Erro ao alterar senha' });
+  }
+});
+
+// ============================================
+// RESETAR SENHA (ADMIN)
+// ============================================
+
+router.post('/:id/reset-password', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { novaSenha } = req.body;
+
+    if (!novaSenha || novaSenha.length < 6) {
+      return res.status(400).json({ error: 'Nova senha deve ter no mínimo 6 caracteres' });
+    }
+
+    const usuario = await prisma.usuario.findUnique({ where: { id } });
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    // Atualizar senha (admin não precisa da senha atual)
+    const senhaHash = await bcrypt.hash(novaSenha, 10);
+    await prisma.usuario.update({
+      where: { id },
+      data: { senha: senhaHash },
+    });
+
+    // Log de auditoria
+    await prisma.logAuditoria.create({
+      data: {
+        usuarioId: req.userId!,
+        acao: 'EDITAR_USUARIO',
+        descricao: `Senha resetada para usuário: ${usuario.nome}`,
+      },
+    });
+
+    res.json({ message: 'Senha resetada com sucesso' });
+  } catch (error) {
+    console.error('Erro ao resetar senha:', error);
+    res.status(500).json({ error: 'Erro ao resetar senha' });
   }
 });
 

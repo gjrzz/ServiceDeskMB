@@ -305,3 +305,21 @@ model LogAuditoria {
   @@index([criadoEm])
   @@map("logs_auditoria")
 }
+
+// ============================================
+// CONFIGURAÇÕES DO SISTEMA
+// ============================================
+
+model Configuracao {
+  id              String   @id @default(cuid())
+  chave           String   @unique // Ex: 'logo_empresa', 'nome_empresa', 'cor_primaria'
+  valor           String   @db.Text // Valor da configuração (pode ser SVG, texto, JSON, etc)
+  descricao       String?  // Descrição da configuração
+  tipo            String   @default("texto") // 'texto', 'svg', 'json', 'numero', 'booleano'
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@index([chave])
+  @@map("configuracoes")
+}

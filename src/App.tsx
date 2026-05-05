@@ -2,6 +2,14 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import ReactDOM from "react-dom";
 import * as THREE from "three";
 import { motion, AnimatePresence } from "motion/react";
+// 🔥 NOVO: Importar AuthProvider da API
+import { AuthProvider as AuthProviderAPI, useAuth as useAuthAPI } from './providers/AuthProvider';
+// 🔥 NOVO: Importar componente de upload de avatar
+import { AvatarUpload } from './components/AvatarUpload';
+// 🔥 NOVO: Importar URL da API para avatares
+import { API_URL } from './config/api';
+// 🔥 NOVO: Importar ConfigProvider para configurações do sistema
+import { ConfigProvider, useConfig } from './providers/ConfigProvider';
 import {
   BarChart,
   Bar,
@@ -1151,11 +1159,31 @@ const Avatar = ({
   };
 
   if (usuario.avatarUrl) {
+    // Construir URL completa se for caminho relativo
+    const fullUrl = usuario.avatarUrl.startsWith('http') 
+      ? usuario.avatarUrl 
+      : `${API_URL}${usuario.avatarUrl}`;
+
+    // Adicionar timestamp para evitar cache do navegador
+    const urlWithCacheBuster = `${fullUrl}?t=${Date.now()}`;
+
     return (
       <img
-        src={usuario.avatarUrl}
+        src={urlWithCacheBuster}
         alt={usuario.nome}
         className={`${sizeClasses[size]} rounded-sm object-cover ${className}`}
+        onError={(e) => {
+          // Fallback para iniciais se a imagem não carregar
+          const target = e.target as HTMLImageElement;
+          target.style.display = 'none';
+          const parent = target.parentElement;
+          if (parent) {
+            const fallback = document.createElement('div');
+            fallback.className = `${sizeClasses[size]} rounded-sm bg-accent-primary/20 flex items-center justify-center text-accent-primary font-medium ${className}`;
+            fallback.textContent = usuario.avatar;
+            parent.appendChild(fallback);
+          }
+        }}
       />
     );
   }
@@ -1514,6 +1542,26 @@ const UsuariosView = () => {
                   <X className="w-5 h-5" />
                 </button>
               </div>
+
+              {/* 🔥 NOVO: Upload de Avatar */}
+              {editingUser && (
+                <div className="mb-6 pb-6 border-b border-border-subtle">
+                  <AvatarUpload
+                    currentAvatarUrl={editingUser.avatarUrl}
+                    currentAvatar={editingUser.avatar}
+                    onUploadSuccess={(avatarUrl) => {
+                      // Atualizar estado local imediatamente para refletir a mudança
+                      setEditingUser({ ...editingUser, avatarUrl });
+                      // Salvar no backend
+                      editarUsuario(editingUser.id, { avatarUrl });
+                      showToast('Foto de perfil atualizada!', 'success');
+                    }}
+                    onUploadError={(error) => {
+                      showToast(error, 'error');
+                    }}
+                  />
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -3415,30 +3463,46 @@ const SettingsView = () => {
     }
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
-    const senhaAtual = (
-      form.elements.namedItem("senhaAtual") as HTMLInputElement
-    ).value;
-    const novaSenha = (form.elements.namedItem("novaSenha") as HTMLInputElement)
-      .value;
-    const confirmarSenha = (
-      form.elements.namedItem("confirmarSenha") as HTMLInputElement
-    ).value;
+    const senhaAtual = (form.elements.namedItem("senhaAtual") as HTMLInputElement).value;
+    const novaSenha = (form.elements.namedItem("novaSenha") as HTMLInputElement).value;
+    const confirmarSenha = (form.elements.namedItem("confirmarSenha") as HTMLInputElement).value;
+
+    if (novaSenha !== confirmarSenha) {
+      showToast("As senhas não coincidem!", "error");
+      return;
+    }
+
+    if (novaSenha.length < 6) {
+      showToast("A senha deve ter no mínimo 6 caracteres!", "error");
+      return;
+    }
 
     if (usuarioLogado) {
-      if (senhaAtual !== usuarioLogado.senha) {
-        showToast("Senha atual incorreta!", "error");
-        return;
+      try {
+        // Usar a rota /change-password que requer senha atual
+        await fetch(`${API_URL}/api/users/${usuarioLogado.id}/change-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+          body: JSON.stringify({ senhaAtual, novaSenha }),
+        }).then(async (res) => {
+          if (!res.ok) {
+            const error = await res.json();
+            throw new Error(error.error || 'Erro ao alterar senha');
+          }
+          return res.json();
+        });
+
+        showToast("Senha alterada com sucesso!", "success");
+        form.reset();
+      } catch (error: any) {
+        showToast(error.message || "Erro ao alterar senha", "error");
       }
-      if (novaSenha !== confirmarSenha) {
-        showToast("As novas senhas não coincidem!", "error");
-        return;
-      }
-      redefinirSenha(usuarioLogado.id, novaSenha);
-      showToast("Senha atualizada com sucesso!");
-      form.reset();
     }
   };
 
@@ -3455,7 +3519,6 @@ const SettingsView = () => {
           {[
             ...(usuarioLogado?.perfil === 'admin' ? [{ id: "general", label: "Geral", icon: SettingsIcon }] : []),
             { id: "profile", label: "Perfil", icon: User },
-            { id: "security", label: "Segurança", icon: Lock },
             ...(usuarioLogado?.perfil === 'admin' ? [{ id: "audit", label: "Log de Auditoria", icon: List }] : []),
           ].map((tab) => (
             <button
@@ -3871,7 +3934,8 @@ const SettingsView = () => {
             </Card>
           )}
 
-          {activeTab === "security" && (
+          {/* Seção de Redefinir Senha */}
+          {activeTab === "profile" && (
             <Card className="p-6 space-y-6">
               <h3 className="text-lg font-medium text-text-primary border-b border-border-subtle pb-4">
                 Alterar Senha
@@ -3892,6 +3956,7 @@ const SettingsView = () => {
                     type="password"
                     required
                     minLength={6}
+                    placeholder="Mínimo 6 caracteres"
                   />
                 </div>
                 <div>
@@ -3911,6 +3976,7 @@ const SettingsView = () => {
               </form>
             </Card>
           )}
+
           {activeTab === "audit" && usuarioLogado?.perfil === "admin" && (
             <Card className="p-6 space-y-6 overflow-hidden">
               <div className="flex justify-between items-center border-b border-border-subtle pb-4">
@@ -5128,10 +5194,22 @@ const ArtigoModal = ({ artigo, onClose }: { artigo?: Artigo | null, onClose: () 
   };
 
   const handleSave = async (isDraft: boolean) => {
-    if (titulo.length < 5 || !categoria || conteudo.length < 50) {
-      showToast('Preencha todos os campos obrigatórios corretamente.', 'error');
+    // Validações específicas com mensagens claras
+    if (titulo.length < 5) {
+      showToast('O título deve ter pelo menos 5 caracteres.', 'error');
       return;
     }
+    
+    if (!categoria) {
+      showToast('Selecione uma categoria.', 'error');
+      return;
+    }
+    
+    if (conteudo.length < 50) {
+      showToast(`O conteúdo deve ter pelo menos 50 caracteres. Atual: ${conteudo.length}/50`, 'error');
+      return;
+    }
+    
     setLoading(true);
     await new Promise(r => setTimeout(r, 600));
     
@@ -5213,7 +5291,12 @@ const ArtigoModal = ({ artigo, onClose }: { artigo?: Artigo | null, onClose: () 
 
           <div className="space-y-2 flex-1 flex flex-col">
             <div className="flex justify-between items-center">
-              <label className="text-sm font-medium text-text-secondary">Conteúdo *</label>
+              <label className="text-sm font-medium text-text-secondary">
+                Conteúdo * 
+                <span className={`ml-2 text-xs ${conteudo.length >= 50 ? 'text-success' : 'text-warning'}`}>
+                  ({conteudo.length}/50 caracteres mínimos)
+                </span>
+              </label>
               <div className="flex items-center gap-2">
                 <div className="flex bg-black/20 rounded p-1">
                   <button onClick={() => insertFormat('**', '**')} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-white/10 rounded" title="Negrito"><b>N</b></button>
@@ -5576,6 +5659,10 @@ interface AuthContextType {
   limparLog: () => void;
 }
 
+// ============================================
+// 🔥 AUTH PROVIDER ANTIGO (COMENTADO - USANDO API AGORA)
+// ============================================
+/*
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
@@ -5585,6 +5672,15 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+*/
+
+// 🔥 NOVO: Usar AuthProvider da API
+export const useAuth = useAuthAPI;
+export const AuthProvider = AuthProviderAPI;
+
+// Código antigo comentado abaixo:
+/*
+export const AuthProvider_OLD = ({ children }: { children: React.ReactNode }) => {
   const [usuarios, setUsuarios] = useState<Usuario[]>(() => {
     const saved = localStorage.getItem("mb_usuarios");
     return saved ? JSON.parse(saved) : USUARIOS_INICIAIS;
@@ -5766,6 +5862,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+*/
+// 🔥 FIM DO AUTH PROVIDER ANTIGO
 
 // --- CONTEXT ---
 interface TicketContextType {
@@ -6540,6 +6638,12 @@ function SinoNotificacoes({ setCurrentView, setTicketAtivo }: { setCurrentView: 
     marcarComoLida(notif.id);
     setAberto(false);
 
+    // Tratar notificação de solicitação de avaliação
+    if (notif.tipo === 'solicitar_avaliacao' && notif.linkId) {
+      navegarParaChamado(notif.linkId);
+      return;
+    }
+
     switch(notif.linkTipo) {
       case 'chamado':
         if (notif.linkId) navegarParaChamado(notif.linkId);
@@ -6638,6 +6742,7 @@ function SinoNotificacoes({ setCurrentView, setTicketAtivo }: { setCurrentView: 
 function MainApp() {
   const { usuarioLogado, fazerLogin, fazerLogout } = useAuth();
   const { slaConfig } = useTickets();
+  const { logoUrl, nomeEmpresa, tituloSistema } = useConfig(); // 🔥 NOVO: Usar configurações do sistema
   const [currentView, setCurrentView] = useState("dashboard");
   const { pedirConfirmacao, fecharConfirm, showToast } = useAppContext();
   const {
@@ -6682,6 +6787,15 @@ function MainApp() {
       }
     }
   }, [usuarioLogado, currentView]);
+
+  // Definir view inicial quando o usuário faz login
+  useEffect(() => {
+    if (usuarioLogado) {
+      // Se for usuário padrão, vai para "my-tickets", senão vai para "dashboard"
+      const viewInicial = usuarioLogado.perfil === 'usuario' ? 'my-tickets' : 'dashboard';
+      setCurrentView(viewInicial);
+    }
+  }, [usuarioLogado?.id]); // Apenas quando o ID do usuário muda (login/logout)
 
   // Estado de intenção de navegação
   const [intencaoNavegacao, setIntencaoNavegacao] = useState<{ tipo: string, id: string } | null>(null);
@@ -6798,24 +6912,25 @@ function MainApp() {
     };
   }, [usuarioLogado, setCurrentView, setTicketAtivo, tickets, showToast]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginLoading(true);
     setLoginError("");
 
-    setTimeout(() => {
-      const result = fazerLogin(loginEmail, loginSenha);
-      setLoginLoading(false);
+    try {
+      const result = await fazerLogin(loginEmail, loginSenha);
+      
       if (!result.success) {
         setLoginError(result.error || "Erro ao fazer login");
       } else {
-        // Verificar o perfil do usuário que acabou de fazer login
-        const usuario = usuarios.find(u => u.email === loginEmail);
-        setCurrentView(
-          usuario?.perfil === "usuario" ? "my-tickets" : "dashboard"
-        );
+        // Login bem-sucedido - a view será atualizada automaticamente
+        // quando usuarioLogado for atualizado no AuthProvider
       }
-    }, 800);
+    } catch (error) {
+      setLoginError("Erro ao fazer login");
+    } finally {
+      setLoginLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -6836,10 +6951,10 @@ function MainApp() {
           >
             <Card className="p-8 text-center border-t-4 border-t-accent-primary">
               <div className="flex justify-center mb-6">
-                <img src="/logo-mb.svg" alt="Monte Bravo" className="h-20" />
+                <img src={logoUrl} alt={nomeEmpresa} className="h-20" />
               </div>
               <h1 className="text-2xl font-bold text-text-primary mb-2">
-                Central de Atendimento Monte Bravo
+                {tituloSistema}
               </h1>
               <p className="text-text-secondary mb-8">
                 Faça login para gerenciar seus chamados e acessar a base de
@@ -6954,7 +7069,7 @@ function MainApp() {
       {/* Sidebar */}
       <aside className="w-64 bg-bg-sidebar/80 backdrop-blur-xl border-r border-border-subtle flex flex-col z-[100] hidden md:flex">
         <div className="p-6 flex items-center justify-center border-b border-border-subtle">
-          <img src="/logo-mb.svg" alt="Monte Bravo" className="h-16" />
+          <img src={logoUrl} alt={nomeEmpresa} className="h-16" />
         </div>
 
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto py-4">
@@ -7018,7 +7133,7 @@ function MainApp() {
         {/* Topbar */}
         <header className="h-16 bg-bg-surface/50 backdrop-blur-md border-b border-border-subtle flex items-center justify-between px-6 shrink-0">
           <div className="flex items-center gap-4 md:hidden">
-            <img src="/logo-mb.svg" alt="Monte Bravo" className="h-10" />
+            <img src={logoUrl} alt={nomeEmpresa} className="h-10" />
           </div>
 
           <div className="flex-1 max-w-xl hidden sm:block">
@@ -7542,7 +7657,6 @@ function MainApp() {
 
                 {/* Componente de Avaliação */}
                 {(ticketAtivo.status === 'Resolvido' || ticketAtivo.status === 'Fechado') && 
-                 usuarioLogado.perfil === 'usuario' && 
                  ticketAtivo.solicitanteId === usuarioLogado.id &&
                  !ticketAtivo.avaliacao && (
                   <div className="mt-6">
@@ -7978,13 +8092,15 @@ export default function App() {
       navegarParaArtigo
     }}>
       <ThemeProvider>
-        <AuthProvider>
-          <TicketProvider>
-            <KBProvider>
-              <MainApp />
-            </KBProvider>
-          </TicketProvider>
-        </AuthProvider>
+        <ConfigProvider>
+          <AuthProvider>
+            <TicketProvider>
+              <KBProvider>
+                <MainApp />
+              </KBProvider>
+            </TicketProvider>
+          </AuthProvider>
+        </ConfigProvider>
       </ThemeProvider>
 
       {/* Toast Notification */}

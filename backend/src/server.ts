@@ -20,6 +20,7 @@ import ticketRoutes from './routes/ticket.routes';
 import kbRoutes from './routes/kb.routes';
 import notificationRoutes from './routes/notification.routes';
 import uploadRoutes from './routes/upload.routes';
+import configRoutes from './routes/config.routes';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -29,12 +30,23 @@ const PORT = process.env.PORT || 3001;
 // ============================================
 
 // Segurança
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Permitir recursos de outras origens
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "http://localhost:3000", "http://localhost:5173"], // Permitir imagens do frontend
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+    },
+  },
+}));
 
 // CORS
 app.use(cors({
   origin: [
-    'http://localhost:5173', // Desenvolvimento local
+    'http://localhost:5173', // Desenvolvimento local (Vite padrão)
+    'http://localhost:3000', // Desenvolvimento local (porta customizada)
     'https://gjrzz.github.io', // GitHub Pages
   ],
   credentials: true,
@@ -77,6 +89,7 @@ app.use('/api/tickets', ticketRoutes);
 app.use('/api/kb', kbRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/config', configRoutes);
 
 // ============================================
 // ERROR HANDLING

@@ -15,6 +15,7 @@ async function main() {
   await prisma.artigoKB.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.usuario.deleteMany();
+  await prisma.configuracao.deleteMany();
 
   // Criar usuários
   const senhaHash = await bcrypt.hash('123456', 10);
@@ -180,6 +181,40 @@ A senha deve ter no mínimo 8 caracteres, incluindo letras maiúsculas, minúscu
   });
 
   console.log('✅ Notificações criadas');
+
+  // Criar configurações do sistema
+  const logoSvg = `<svg width="120" height="80" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <text x="10" y="60" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="700" fill="#8B7FC7">mb</text>
+</svg>`;
+
+  await prisma.configuracao.create({
+    data: {
+      chave: 'logo_empresa',
+      valor: logoSvg,
+      descricao: 'Logo da empresa em formato SVG',
+      tipo: 'svg',
+    },
+  });
+
+  await prisma.configuracao.create({
+    data: {
+      chave: 'nome_empresa',
+      valor: 'Monte Bravo',
+      descricao: 'Nome da empresa',
+      tipo: 'texto',
+    },
+  });
+
+  await prisma.configuracao.create({
+    data: {
+      chave: 'titulo_sistema',
+      valor: 'Central de Atendimento Monte Bravo',
+      descricao: 'Título do sistema',
+      tipo: 'texto',
+    },
+  });
+
+  console.log('✅ Configurações do sistema criadas');
 
   console.log('\n🎉 Seed concluído com sucesso!');
   console.log('\n📧 Credenciais de teste:');

@@ -183,7 +183,8 @@ export const apiGet = async (url: string, includeAuth = true) => {
   });
 
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || error.message || `HTTP error! status: ${response.status}`);
   }
 
   return response.json();
@@ -201,7 +202,7 @@ export const apiPost = async (url: string, data: any, includeAuth = true) => {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    throw new Error(error.error || error.message || `HTTP error! status: ${response.status}`);
   }
 
   return response.json();
@@ -219,7 +220,25 @@ export const apiPut = async (url: string, data: any, includeAuth = true) => {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    throw new Error(error.error || error.message || `HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
+};
+
+/**
+ * Faz requisição PATCH
+ */
+export const apiPatch = async (url: string, data: any, includeAuth = true) => {
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: getHeaders(includeAuth),
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || error.message || `HTTP error! status: ${response.status}`);
   }
 
   return response.json();
@@ -236,7 +255,7 @@ export const apiDelete = async (url: string, includeAuth = true) => {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    throw new Error(error.error || error.message || `HTTP error! status: ${response.status}`);
   }
 
   return response.json();
@@ -254,7 +273,7 @@ export const apiUpload = async (url: string, formData: FormData) => {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    throw new Error(error.error || error.message || `HTTP error! status: ${response.status}`);
   }
 
   return response.json();
