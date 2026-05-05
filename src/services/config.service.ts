@@ -21,7 +21,7 @@ export interface ConfiguracoesSistema {
  */
 export const getConfiguracoes = async (): Promise<ConfiguracoesSistema> => {
   try {
-    const response = await apiGet(`${API_ENDPOINTS.health.replace('/health', '')}/config`, false);
+    const response = await apiGet(API_ENDPOINTS.config.list, false);
     return response;
   } catch (error) {
     console.error('Erro ao buscar configurações:', error);
@@ -34,7 +34,7 @@ export const getConfiguracoes = async (): Promise<ConfiguracoesSistema> => {
  */
 export const getConfiguracao = async (chave: string): Promise<Configuracao> => {
   try {
-    const response = await apiGet(`${API_ENDPOINTS.health.replace('/health', '')}/config/${chave}`, false);
+    const response = await apiGet(API_ENDPOINTS.config.get(chave), false);
     return response;
   } catch (error) {
     console.error(`Erro ao buscar configuração ${chave}:`, error);

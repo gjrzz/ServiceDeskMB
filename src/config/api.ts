@@ -23,9 +23,22 @@ const LOCAL_API_URL = 'http://localhost:3001';
 // ========================================
 
 // Detecta automaticamente se está em produção ou desenvolvimento
-export const API_URL = window.location.hostname === 'gjrzz.github.io'
-  ? RAILWAY_API_URL  // Produção (GitHub Pages)
-  : LOCAL_API_URL;   // Desenvolvimento (localhost)
+export const API_URL = (() => {
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isGitHubPages = hostname === 'gjrzz.github.io';
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+  
+  if (isGitHubPages) {
+    console.log('🌐 Ambiente: GitHub Pages - usando Railway API');
+    return RAILWAY_API_URL;
+  } else if (isLocalhost) {
+    console.log('🌐 Ambiente: Localhost - usando API local');
+    return LOCAL_API_URL;
+  } else {
+    console.log('🌐 Ambiente: Desconhecido - usando Railway API como fallback');
+    return RAILWAY_API_URL;
+  }
+})();
 
 // ========================================
 // 📍 ENDPOINTS DA API
@@ -96,6 +109,12 @@ export const API_ENDPOINTS = {
     file: `${API_URL}/api/upload`,
     image: `${API_URL}/api/upload/image`,
     avatar: `${API_URL}/api/upload/avatar`,
+  },
+
+  // Configurações do sistema
+  config: {
+    list: `${API_URL}/api/config`,
+    get: (key: string) => `${API_URL}/api/config/${key}`,
   },
 
   // Health check
