@@ -12,7 +12,7 @@ export default defineConfig(({mode}) => {
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
-      target: 'es2015',
+      target: 'esnext',
       minify: 'esbuild',
       rollupOptions: {
         output: {
