@@ -7986,16 +7986,14 @@ export default function App() {
     message: string,
     type: "success" | "info" | "error" = "success",
   ) => {
-    // Limpar toast anterior se existir
-    if (toast) {
-      setToast(null);
-    }
+    // Limpar toast anterior imediatamente
+    setToast(null);
     
-    // Pequeno delay para garantir que o toast anterior foi limpo
-    setTimeout(() => {
+    // Usar requestAnimationFrame para garantir que o DOM foi atualizado
+    requestAnimationFrame(() => {
       setToast({ message, type });
       setTimeout(() => setToast(null), 3000);
-    }, 50);
+    });
   };
 
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>(() => {

@@ -42,7 +42,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "http://localhost:3000", "http://localhost:5173", "https://gjrzz.github.io"], // Permitir imagens do frontend
+      imgSrc: ["'self'", "data:", "http://localhost:3000", "http://localhost:5173", "https://gjrzz.github.io", "*"], // Permitir imagens de qualquer origem
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
     },
