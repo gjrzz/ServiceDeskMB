@@ -1151,6 +1151,8 @@ const Avatar = ({
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }) => {
+  const [imagemErro, setImagemErro] = React.useState(false);
+
   const sizeClasses = {
     sm: "w-8 h-8 text-xs",
     md: "w-10 h-10 text-sm",
@@ -1158,7 +1160,7 @@ const Avatar = ({
     xl: "w-16 h-16 text-xl"
   };
 
-  if (usuario.avatarUrl) {
+  if (usuario.avatarUrl && !imagemErro) {
     // Construir URL completa se for caminho relativo
     const fullUrl = usuario.avatarUrl.startsWith('http') 
       ? usuario.avatarUrl 
@@ -1172,18 +1174,7 @@ const Avatar = ({
         src={urlWithCacheBuster}
         alt={usuario.nome}
         className={`${sizeClasses[size]} rounded-sm object-cover ${className}`}
-        onError={(e) => {
-          // Fallback para iniciais se a imagem não carregar
-          const target = e.target as HTMLImageElement;
-          target.style.display = 'none';
-          const parent = target.parentElement;
-          if (parent) {
-            const fallback = document.createElement('div');
-            fallback.className = `${sizeClasses[size]} rounded-sm bg-accent-primary/20 flex items-center justify-center text-accent-primary font-medium ${className}`;
-            fallback.textContent = usuario.avatar;
-            parent.appendChild(fallback);
-          }
-        }}
+        onError={() => setImagemErro(true)}
       />
     );
   }
