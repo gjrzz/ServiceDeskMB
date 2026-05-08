@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { prisma } from '../server';
+import { prisma } from '../prisma';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -14,13 +14,35 @@ const createTicketSchema = z.object({
   categoria: z.enum(['HARDWARE', 'SOFTWARE', 'REDE', 'ACESSO', 'OUTROS']),
 });
 
+const updatePrioritySchema = z.object({
+  prioridade: z.enum(['BAIXO', 'MEDIO', 'ALTO', 'CRITICO']),
+});
+
+const assignTicketSchema = z.object({
+  responsavelId: z.string().min(1, 'Responsável é obrigatório'),
+});
+
+const rateTicketSchema = z.object({
+  nota: z.number().min(1, 'Nota deve ser entre 1 e 5').max(5, 'Nota deve ser entre 1 e 5'),
+  resolvido: z.boolean(),
+  comentario: z.string().optional(),
+});
+
+const isPrivileged = (perfil?: string) =>
+  perfil === 'ADMIN' || perfil === 'MANAGER';
+
+const canAccessTicket = (req: AuthRequest, chamado: any) =>
+  isPrivileged(req.userPerfil) ||
+  chamado.solicitanteId === req.userId ||
+  chamado.responsavelId === req.userId;
+
 // Listar chamados
 router.get('/', async (req: AuthRequest, res) => {
   try {
-    const isAdmin = req.userPerfil === 'ADMIN';
+    const isPrivilegedUser = isPrivileged(req.userPerfil);
     
     const chamados = await prisma.chamado.findMany({
-      where: isAdmin ? {} : { solicitanteId: req.userId },
+      where: isPrivilegedUser ? {} : { solicitanteId: req.userId },
       include: {
         solicitante: {
           select: {
@@ -60,7 +82,6 @@ router.get('/', async (req: AuthRequest, res) => {
 router.get('/:id', async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    const isAdmin = req.userPerfil === 'ADMIN';
 
     const chamado = await prisma.chamado.findUnique({
       where: { id },
@@ -104,7 +125,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
     }
 
     // Verificar permissão
-    if (!isAdmin && chamado.solicitanteId !== req.userId) {
+    if (!canAccessTicket(req, chamado)) {
       return res.status(403).json({ error: 'Sem permissão para ver este chamado' });
     }
 
@@ -206,6 +227,10 @@ router.patch('/:id/status', async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Chamado não encontrado' });
     }
 
+    if (!canAccessTicket(req, chamado)) {
+      return res.status(403).json({ error: 'Sem permissão para alterar este chamado' });
+    }
+
     const statusAnterior = chamado.status;
     const agora = new Date();
 
@@ -263,11 +288,291 @@ router.patch('/:id/status', async (req: AuthRequest, res) => {
   }
 });
 
+router.put('/:id/status', async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const chamado = await prisma.chamado.findUnique({ where: { id } });
+    if (!chamado) {
+      return res.status(404).json({ error: 'Chamado não encontrado' });
+    }
+
+    if (!canAccessTicket(req, chamado)) {
+      return res.status(403).json({ error: 'Sem permissão para alterar este chamado' });
+    }
+
+    const statusAnterior = chamado.status;
+    const agora = new Date();
+
+    const updateData: any = { status };
+
+    if (status === 'RESOLVIDO' && !chamado.resolvidoEm) {
+      updateData.resolvidoEm = agora;
+      updateData.slaCumprido = agora <= (chamado.slaVencimento || agora);
+    }
+
+    if (status === 'FECHADO' && !chamado.fechadoEm) {
+      updateData.fechadoEm = agora;
+    }
+
+    const chamadoAtualizado = await prisma.chamado.update({
+      where: { id },
+      data: updateData,
+      include: {
+        solicitante: {
+          select: { id: true, nome: true },
+        },
+      },
+    });
+
+    await prisma.atividadeChamado.create({
+      data: {
+        chamadoId: id,
+        autorId: req.userId!,
+        tipo: 'MUDANCA_STATUS',
+        texto: `Status alterado de ${statusAnterior} para ${status}`,
+        valorAnterior: statusAnterior,
+        valorNovo: status,
+      },
+    });
+
+    if (status === 'RESOLVIDO' || status === 'FECHADO') {
+      await prisma.notificacao.create({
+        data: {
+          tipo: 'SOLICITAR_AVALIACAO',
+          titulo: 'Avalie seu chamado',
+          mensagem: `Seu chamado foi ${status.toLowerCase()}. Como foi sua experiência?`,
+          linkTipo: 'chamado',
+          linkId: id,
+          destinatarioId: chamado.solicitanteId,
+        },
+      });
+    }
+
+    res.json(chamadoAtualizado);
+  } catch (error) {
+    console.error('Erro ao atualizar status:', error);
+    res.status(500).json({ error: 'Erro ao atualizar status' });
+  }
+});
+
+// Atualizar prioridade
+router.patch('/:id/priority', async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { prioridade } = updatePrioritySchema.parse(req.body);
+
+    const chamado = await prisma.chamado.findUnique({ where: { id } });
+    if (!chamado) {
+      return res.status(404).json({ error: 'Chamado não encontrado' });
+    }
+
+    if (!canAccessTicket(req, chamado)) {
+      return res.status(403).json({ error: 'Sem permissão para alterar este chamado' });
+    }
+
+    const chamadoAtualizado = await prisma.chamado.update({
+      where: { id },
+      data: { prioridade },
+      include: {
+        solicitante: {
+          select: {
+            id: true,
+            nome: true,
+            email: true,
+            avatar: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    await prisma.atividadeChamado.create({
+      data: {
+        chamadoId: id,
+        autorId: req.userId!,
+        tipo: 'MUDANCA_PRIORIDADE',
+        texto: `Prioridade alterada de ${chamado.prioridade} para ${prioridade}`,
+        valorAnterior: chamado.prioridade,
+        valorNovo: prioridade,
+      },
+    });
+
+    res.json(chamadoAtualizado);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors[0].message });
+    }
+    console.error('Erro ao atualizar prioridade:', error);
+    res.status(500).json({ error: 'Erro ao atualizar prioridade' });
+  }
+});
+
+router.put('/:id/priority', async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { prioridade } = updatePrioritySchema.parse(req.body);
+
+    const chamado = await prisma.chamado.findUnique({ where: { id } });
+    if (!chamado) {
+      return res.status(404).json({ error: 'Chamado não encontrado' });
+    }
+
+    if (!canAccessTicket(req, chamado)) {
+      return res.status(403).json({ error: 'Sem permissão para alterar este chamado' });
+    }
+
+    const chamadoAtualizado = await prisma.chamado.update({
+      where: { id },
+      data: { prioridade },
+      include: {
+        solicitante: {
+          select: {
+            id: true,
+            nome: true,
+            email: true,
+            avatar: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    await prisma.atividadeChamado.create({
+      data: {
+        chamadoId: id,
+        autorId: req.userId!,
+        tipo: 'MUDANCA_PRIORIDADE',
+        texto: `Prioridade alterada de ${chamado.prioridade} para ${prioridade}`,
+        valorAnterior: chamado.prioridade,
+        valorNovo: prioridade,
+      },
+    });
+
+    res.json(chamadoAtualizado);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors[0].message });
+    }
+    console.error('Erro ao atualizar prioridade:', error);
+    res.status(500).json({ error: 'Erro ao atualizar prioridade' });
+  }
+});
+
+// Atribuir responsável
+router.post('/:id/assign', async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { responsavelId } = assignTicketSchema.parse(req.body);
+
+    if (!isPrivileged(req.userPerfil)) {
+      return res.status(403).json({ error: 'Sem permissão para atribuir este chamado' });
+    }
+
+    const chamado = await prisma.chamado.findUnique({ where: { id } });
+    if (!chamado) {
+      return res.status(404).json({ error: 'Chamado não encontrado' });
+    }
+
+    const chamadoAtualizado = await prisma.chamado.update({
+      where: { id },
+      data: { responsavelId },
+      include: {
+        solicitante: {
+          select: {
+            id: true,
+            nome: true,
+            email: true,
+            avatar: true,
+            avatarUrl: true,
+          },
+        },
+        responsavel: {
+          select: {
+            id: true,
+            nome: true,
+            email: true,
+            avatar: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    await prisma.atividadeChamado.create({
+      data: {
+        chamadoId: id,
+        autorId: req.userId!,
+        tipo: 'ATRIBUICAO',
+        texto: `Chamado atribuído para ${chamadoAtualizado.responsavel?.nome || responsavelId}`,
+        valorAnterior: chamado.responsavelId,
+        valorNovo: responsavelId,
+      },
+    });
+
+    res.json(chamadoAtualizado);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors[0].message });
+    }
+    console.error('Erro ao atribuir responsável:', error);
+    res.status(500).json({ error: 'Erro ao atribuir responsável' });
+  }
+});
+
+// Avaliar chamado
+const handleTicketRating = async (req: AuthRequest, res: any) => {
+  try {
+    const { id } = req.params;
+    const { nota, resolvido, comentario } = rateTicketSchema.parse(req.body);
+
+    const chamado = await prisma.chamado.findUnique({ where: { id } });
+    if (!chamado) {
+      return res.status(404).json({ error: 'Chamado não encontrado' });
+    }
+
+    if (chamado.solicitanteId !== req.userId) {
+      return res.status(403).json({ error: 'Apenas o solicitante pode avaliar' });
+    }
+
+    const chamadoAtualizado = await prisma.chamado.update({
+      where: { id },
+      data: {
+        avaliacaoNota: nota,
+        avaliacaoResolvido: resolvido,
+        avaliacaoComentario: comentario,
+        avaliacaoData: new Date(),
+      },
+    });
+
+    res.json(chamadoAtualizado);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors[0].message });
+    }
+    console.error('Erro ao avaliar chamado:', error);
+    res.status(500).json({ error: 'Erro ao avaliar chamado' });
+  }
+};
+
+router.post('/:id/rate', handleTicketRating);
+router.post('/:id/avaliar', handleTicketRating);
+
 // Adicionar comentário
 router.post('/:id/comments', async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const { texto, interno } = req.body;
+
+    const chamado = await prisma.chamado.findUnique({ where: { id } });
+    if (!chamado) {
+      return res.status(404).json({ error: 'Chamado não encontrado' });
+    }
+
+    if (!canAccessTicket(req, chamado)) {
+      return res.status(403).json({ error: 'Sem permissão para comentar neste chamado' });
+    }
 
     const atividade = await prisma.atividadeChamado.create({
       data: {
@@ -295,35 +600,59 @@ router.post('/:id/comments', async (req: AuthRequest, res) => {
   }
 });
 
-// Avaliar chamado
-router.post('/:id/avaliar', async (req: AuthRequest, res) => {
+// Deletar chamado
+router.delete('/:id', async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    const { nota, resolvido, comentario } = req.body;
 
     const chamado = await prisma.chamado.findUnique({ where: { id } });
     if (!chamado) {
       return res.status(404).json({ error: 'Chamado não encontrado' });
     }
 
-    if (chamado.solicitanteId !== req.userId) {
-      return res.status(403).json({ error: 'Apenas o solicitante pode avaliar' });
+    // Apenas admin ou o solicitante pode deletar
+    const isAdmin = req.userPerfil === 'ADMIN';
+    const isSolicitante = chamado.solicitanteId === req.userId;
+
+    if (!isAdmin && !isSolicitante) {
+      return res.status(403).json({ error: 'Sem permissão para deletar este chamado' });
     }
 
-    const chamadoAtualizado = await prisma.chamado.update({
+    // Deletar atividades relacionadas
+    await prisma.atividadeChamado.deleteMany({
+      where: { chamadoId: id },
+    });
+
+    // Deletar notificações relacionadas
+    await prisma.notificacao.deleteMany({
+      where: { linkId: id },
+    });
+
+    // Deletar anexos relacionados (se houver)
+    await prisma.anexoChamado.deleteMany({
+      where: { chamadoId: id },
+    });
+
+    // Deletar chamado
+    await prisma.chamado.delete({
       where: { id },
+    });
+
+    // Log de auditoria
+    await prisma.logAuditoria.create({
       data: {
-        avaliacaoNota: nota,
-        avaliacaoResolvido: resolvido,
-        avaliacaoComentario: comentario,
-        avaliacaoData: new Date(),
+        usuarioId: req.userId!,
+        acao: 'DELETE_CHAMADO',
+        descricao: `Chamado ${id} deletado: ${chamado.titulo}`,
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
       },
     });
 
-    res.json(chamadoAtualizado);
+    res.json({ message: 'Chamado deletado com sucesso' });
   } catch (error) {
-    console.error('Erro ao avaliar chamado:', error);
-    res.status(500).json({ error: 'Erro ao avaliar chamado' });
+    console.error('Erro ao deletar chamado:', error);
+    res.status(500).json({ error: 'Erro ao deletar chamado' });
   }
 });
 

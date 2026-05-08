@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { prisma } from '../server';
+import { prisma } from '../prisma';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -76,8 +76,8 @@ router.get('/:id', async (req: AuthRequest, res) => {
   }
 });
 
-// Criar artigo (admin)
-router.post('/', requireAdmin, async (req: AuthRequest, res) => {
+// Criar artigo (qualquer usuário autenticado)
+router.post('/', async (req: AuthRequest, res) => {
   try {
     const { titulo, conteudo, categoria, tags, publicado } = req.body;
 
@@ -109,11 +109,24 @@ router.post('/', requireAdmin, async (req: AuthRequest, res) => {
   }
 });
 
-// Atualizar artigo (admin)
-router.patch('/:id', requireAdmin, async (req: AuthRequest, res) => {
+// Atualizar artigo (apenas o autor ou admin)
+router.patch('/:id', async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const { titulo, conteudo, categoria, tags, publicado } = req.body;
+
+    // Buscar artigo para verificar permissão
+    const artigoExistente = await prisma.artigoKB.findUnique({ where: { id } });
+    if (!artigoExistente) {
+      return res.status(404).json({ error: 'Artigo não encontrado' });
+    }
+
+    // Apenas autor ou admin podem editar
+    const isAutor = artigoExistente.autorId === req.userId;
+    const isAdmin = req.userPerfil === 'ADMIN';
+    if (!isAutor && !isAdmin) {
+      return res.status(403).json({ error: 'Sem permissão para editar este artigo' });
+    }
 
     const artigo = await prisma.artigoKB.update({
       where: { id },
@@ -139,10 +152,23 @@ router.patch('/:id', requireAdmin, async (req: AuthRequest, res) => {
             id: true,
             nome: true,
             avatar: true,
-            avatarUrl: true,
-          },
-        },
-      },
+            avatarUrpenas o autor ou admin)
+router.delete('/:id', async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+
+    // Buscar artigo para verificar permissão
+    const artigo = await prisma.artigoKB.findUnique({ where: { id } });
+    if (!artigo) {
+      return res.status(404).json({ error: 'Artigo não encontrado' });
+    }
+
+    // Apenas autor ou admin podem deletar
+    const isAutor = artigo.autorId === req.userId;
+    const isAdmin = req.userPerfil === 'ADMIN';
+    if (!isAutor && !isAdmin) {
+      return res.status(403).json({ error: 'Sem permissão para deletar este artigo' });
+    }
     });
 
     res.json(artigo);

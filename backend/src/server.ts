@@ -3,15 +3,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './prisma';
 
 // Carregar variáveis de ambiente
 dotenv.config();
-
-// Inicializar Prisma
-export const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-});
 
 // Importar rotas
 import authRoutes from './routes/auth.routes';
@@ -88,24 +83,6 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV 
   });
-});
-
-// Endpoint temporário para resetar senha do admin (REMOVER EM PRODUÇÃO)
-app.post('/api/reset-admin', async (req, res) => {
-  try {
-    const bcrypt = require('bcryptjs');
-    const senhaHash = await bcrypt.hash('123456', 10);
-    
-    const admin = await prisma.usuario.update({
-      where: { email: 'gabriel@montebravo.com.br' },
-      data: { senha: senhaHash },
-    });
-    
-    res.json({ message: 'Senha do admin resetada para 123456', admin: admin.email });
-  } catch (error) {
-    console.error('Erro ao resetar senha:', error);
-    res.status(500).json({ error: 'Erro ao resetar senha' });
-  }
 });
 
 // Rotas da API

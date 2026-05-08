@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { prisma } from '../server';
+import { prisma } from '../prisma';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.utils';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 
@@ -18,6 +18,91 @@ const loginSchema = z.object({
 
 const refreshSchema = z.object({
   refreshToken: z.string().min(1, 'Refresh token é obrigatório'),
+});
+
+const registerSchema = z.object({
+  nome: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
+  email: z.string().email('E-mail inválido'),
+  senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  departamento: z.string().min(2, 'Departamento é obrigatório'),
+});
+
+// ============================================
+// REGISTRAR
+// ============================================
+
+router.post('/register', async (req, res) => {
+  try {
+    const { nome, email, senha, departamento } = registerSchema.parse(req.body);
+
+    // Verificar se usuário já existe
+    const usuarioExistente = await prisma.usuario.findUnique({
+      where: { email },
+    });
+
+    if (usuarioExistente) {
+      return res.status(400).json({ error: 'Este e-mail já está cadastrado' });
+    }
+
+    // Hash da senha
+    const senhaHash = await bcrypt.hash(senha, 10);
+
+    // Criar usuário
+    const usuario = await prisma.usuario.create({
+      data: {
+        nome,
+        email,
+        senha: senhaHash,
+        departamento,
+        perfil: 'USUARIO',
+        avatar: nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
+      },
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        perfil: true,
+        departamento: true,
+        avatar: true,
+        ativo: true,
+      },
+    });
+
+    // Gerar tokens
+    const accessToken = generateAccessToken({
+      userId: usuario.id,
+      perfil: usuario.perfil,
+    });
+
+    const refreshToken = generateRefreshToken({
+      userId: usuario.id,
+      perfil: usuario.perfil,
+    });
+
+    // Salvar refresh token
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    await prisma.refreshToken.create({
+      data: {
+        token: refreshToken,
+        usuarioId: usuario.id,
+        expiresAt,
+      },
+    });
+
+    res.status(201).json({
+      usuario,
+      accessToken,
+      refreshToken,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors[0].message });
+    }
+    console.error('Erro no registro:', error);
+    res.status(500).json({ error: 'Erro ao registrar usuário' });
+  }
 });
 
 // ============================================

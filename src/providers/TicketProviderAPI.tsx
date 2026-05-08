@@ -5,6 +5,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthProvider';
+import { API_ENDPOINTS } from '../config/api';
 
 // Tipos do frontend
 type Priority = "Baixo" | "Médio" | "Alto" | "Crítico";
@@ -330,7 +331,7 @@ export const TicketProviderAPI = ({ children }: { children: React.ReactNode }) =
           
           // Tentar carregar da API em background
           try {
-            const chamados = await apiGet(`${API_URL}/api/tickets`);
+            const chamados = await apiGet(API_ENDPOINTS.tickets.list);
             if (Array.isArray(chamados) && chamados.length > 0) {
               setTickets(chamados.map(convertChamadoToTicketData));
               // Limpar localStorage após migrar
@@ -345,7 +346,7 @@ export const TicketProviderAPI = ({ children }: { children: React.ReactNode }) =
       }
 
       // Carregar da API
-      const chamados = await apiGet(`${API_URL}/api/tickets`);
+      const chamados = await apiGet(API_ENDPOINTS.tickets.list);
       if (Array.isArray(chamados)) {
         setTickets(chamados.map(convertChamadoToTicketData));
       }
@@ -462,16 +463,15 @@ export const TicketProviderAPI = ({ children }: { children: React.ReactNode }) =
     };
 
     // Salvar no backend
-    apiPost(`${API_URL}/api/tickets`, {
+    apiPost(API_ENDPOINTS.tickets.create, {
       titulo: newTicket.title,
       descricao: newTicket.description,
       prioridade: mapPriorityToAPI(newTicket.priority),
       categoria: mapCategoryToAPI(newTicket.category),
     }).then(response => {
-      // Atualizar com o ID real do backend
       if (response && response.id) {
         setTickets(prev => prev.map(t => 
-          t.id === newId ? { ...t, id: response.id } : t
+          t.id === newId ? convertChamadoToTicketData(response) : t
         ));
       }
     }).catch(error => {
@@ -481,18 +481,6 @@ export const TicketProviderAPI = ({ children }: { children: React.ReactNode }) =
 
     setTickets([newTicket, ...tickets]);
     adicionarAtividade(newId, `${newTicket.requester} criou o chamado`);
-
-    // Criar notificação para admins
-    try {
-      apiPost(`${API_URL}/api/notifications`, {
-        tipo: 'CHAMADO_CRIADO',
-        titulo: 'Novo chamado aberto',
-        mensagem: `${newTicket.id} — "${newTicket.title}" por ${solicitanteNome}`,
-        linkTipo: 'chamado',
-        linkId: newTicket.id,
-        destinatarioId: 'admin',
-      });
-    } catch (e) {}
 
     return newTicket;
   };
@@ -509,7 +497,7 @@ export const TicketProviderAPI = ({ children }: { children: React.ReactNode }) =
 
     // Atualizar no backend
     try {
-      await apiPatch(`${API_URL}/api/tickets/${id}/status`, { status: mapStatusToAPI(novoStatus) });
+      await apiPatch(API_ENDPOINTS.tickets.updateStatus(id), { status: mapStatusToAPI(novoStatus) });
     } catch (error) {
       console.error('Erro ao atualizar status no backend:', error);
     }
@@ -522,7 +510,7 @@ export const TicketProviderAPI = ({ children }: { children: React.ReactNode }) =
     adicionarAtividade(id, `Prioridade alterada para ${novaPrioridade}`);
 
     try {
-      await apiPatch(`${API_URL}/api/tickets/${id}/status`, { prioridade: mapPriorityToAPI(novaPrioridade) });
+      await apiPatch(API_ENDPOINTS.tickets.updatePriority(id), { prioridade: mapPriorityToAPI(novaPrioridade) });
     } catch (error) {
       console.error('Erro ao atualizar prioridade:', error);
     }
@@ -539,7 +527,7 @@ export const TicketProviderAPI = ({ children }: { children: React.ReactNode }) =
     adicionarAtividade(id, texto, isInterno ? "internal_comment" : "comment");
 
     try {
-      await apiPost(`${API_URL}/api/tickets/${id}/comments`, { texto, interno: isInterno });
+      await apiPost(API_ENDPOINTS.tickets.addComment(id), { texto, interno: isInterno });
     } catch (error) {
       console.error('Erro ao adicionar comentário:', error);
     }
@@ -564,7 +552,7 @@ export const TicketProviderAPI = ({ children }: { children: React.ReactNode }) =
     adicionarAtividade(id, `Chamado avaliado: ${nota} estrelas`, "comment");
 
     try {
-      apiPost(`${API_URL}/api/tickets/${id}/rate`, { nota, resolvido, comentario });
+      apiPost(API_ENDPOINTS.tickets.rate(id), { nota, resolvido, comentario });
     } catch (error) {
       console.error('Erro ao avaliar chamado:', error);
     }
@@ -582,7 +570,7 @@ export const TicketProviderAPI = ({ children }: { children: React.ReactNode }) =
     registrarExclusao('chamado', id, ticket?.title || id);
 
     try {
-      apiDelete(`${API_URL}/api/tickets/${id}`);
+      apiDelete(API_ENDPOINTS.tickets.delete(id));
     } catch (error) {
       console.error('Erro ao deletar chamado:', error);
     }
@@ -594,7 +582,7 @@ export const TicketProviderAPI = ({ children }: { children: React.ReactNode }) =
     ticketsToDelete.forEach(t => registrarExclusao('chamado', t.id, t.title));
 
     ids.forEach(id => {
-      try { apiDelete(`${API_URL}/api/tickets/${id}`); } catch (e) {}
+      try { apiDelete(API_ENDPOINTS.tickets.delete(id)); } catch (e) {}
     });
   };
 

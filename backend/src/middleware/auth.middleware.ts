@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { prisma } from '../server';
+import { prisma } from '../prisma';
 
 export interface AuthRequest extends Request {
   userId?: string;
@@ -57,6 +57,17 @@ export const requireAdmin = (
 ) => {
   if (req.userPerfil !== 'ADMIN') {
     return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+  }
+  next();
+};
+
+export const requireAdminOrManager = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  if (req.userPerfil !== 'ADMIN' && req.userPerfil !== 'MANAGER') {
+    return res.status(403).json({ error: 'Acesso negado. Apenas administradores ou managers.' });
   }
   next();
 };
