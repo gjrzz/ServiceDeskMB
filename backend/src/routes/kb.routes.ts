@@ -30,7 +30,7 @@ router.get('/', async (req: AuthRequest, res) => {
     console.error('Erro ao listar artigos:', error);
     res.status(500).json({ error: 'Erro ao listar artigos' });
   }
-});
+    });
 
 // Buscar artigo por ID
 router.get('/:id', async (req: AuthRequest, res) => {
@@ -74,7 +74,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
     console.error('Erro ao buscar artigo:', error);
     res.status(500).json({ error: 'Erro ao buscar artigo' });
   }
-});
+    });
 
 // Criar artigo (qualquer usuário autenticado)
 router.post('/', async (req: AuthRequest, res) => {
@@ -107,7 +107,7 @@ router.post('/', async (req: AuthRequest, res) => {
     console.error('Erro ao criar artigo:', error);
     res.status(500).json({ error: 'Erro ao criar artigo' });
   }
-});
+    });
 
 // Atualizar artigo (apenas o autor ou admin)
 router.patch('/:id', async (req: AuthRequest, res) => {
@@ -152,31 +152,17 @@ router.patch('/:id', async (req: AuthRequest, res) => {
             id: true,
             nome: true,
             avatar: true,
-            avatarUrpenas o autor ou admin)
-router.delete('/:id', async (req: AuthRequest, res) => {
-  try {
-    const { id } = req.params;
-
-    // Buscar artigo para verificar permissão
-    const artigo = await prisma.artigoKB.findUnique({ where: { id } });
-    if (!artigo) {
-      return res.status(404).json({ error: 'Artigo não encontrado' });
-    }
-
-    // Apenas autor ou admin podem deletar
-    const isAutor = artigo.autorId === req.userId;
-    const isAdmin = req.userPerfil === 'ADMIN';
-    if (!isAutor && !isAdmin) {
-      return res.status(403).json({ error: 'Sem permissão para deletar este artigo' });
-    }
+            avatarUrl: true,
+          },
+        },
+      },
     });
-
     res.json(artigo);
   } catch (error) {
     console.error('Erro ao atualizar artigo:', error);
     res.status(500).json({ error: 'Erro ao atualizar artigo' });
   }
-});
+    });
 
 // Deletar artigo (admin)
 router.delete('/:id', requireAdmin, async (req: AuthRequest, res) => {
@@ -190,6 +176,6 @@ router.delete('/:id', requireAdmin, async (req: AuthRequest, res) => {
     console.error('Erro ao deletar artigo:', error);
     res.status(500).json({ error: 'Erro ao deletar artigo' });
   }
-});
+    });
 
 export default router;
