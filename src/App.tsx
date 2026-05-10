@@ -639,6 +639,30 @@ const getFileIcon = (type: string, name: string) => {
   }
 };
 
+const parseTicketDescription = (text: string) => {
+  const [mainDescription, metadataBlock] = text.split(/\n{2,}---\n/);
+
+  const details = metadataBlock
+    ? metadataBlock
+        .split('\n')
+        .map(line => line.replace(/\*\*/g, '').trim())
+        .filter(line => line.length > 0)
+        .map(line => {
+          const [label, ...rest] = line.split(':');
+          return {
+            label: label.trim(),
+            value: rest.join(':').trim(),
+          };
+        })
+        .filter(item => item.value)
+    : [];
+
+  return {
+    mainDescription: (mainDescription || '').trim(),
+    details,
+  };
+};
+
 const generateFileUrl = (file: File | Attachment) => {
   // Em um sistema real, isso seria uma URL do servidor
   // Para demonstração, vamos criar URLs simuladas
@@ -1801,7 +1825,7 @@ const ActivityLogView = () => {
     // Criar o chamado
     const novoChamado = criarChamado({
       title: titulo, // Usar 'title' ao invés de 'titulo'
-      description: `${descricao}\n\n---\n**Origem:** ${origem}\n${observacoes ? `**Observações:** ${observacoes}` : ''}`,
+      description: `${descricao}\n\n---\nOrigem: ${origem}\n${observacoes ? `Observações: ${observacoes}` : ''}`,
       priority: prioridade,
       category: categoria,
       status,
@@ -7205,9 +7229,30 @@ function MainApp() {
                 </div>
 
                 <div className="prose prose-invert max-w-none">
-                  <div className="text-text-secondary leading-relaxed whitespace-pre-line">
-                    {ticketAtivo.description}
-                  </div>
+                  {(() => {
+                    const { mainDescription, details } = parseTicketDescription(ticketAtivo.description || '');
+                    return (
+                      <>
+                        <p className="text-text-secondary leading-relaxed whitespace-pre-line">
+                          {mainDescription}
+                        </p>
+                        {details.length > 0 && (
+                          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                            {details.map((detail, index) => (
+                              <div key={index} className="rounded-2xl border border-border-subtle bg-bg-surface p-4">
+                                <p className="text-text-muted text-[11px] uppercase tracking-[0.22em] mb-1">
+                                  {detail.label}
+                                </p>
+                                <p className="text-text-primary text-sm whitespace-pre-line">
+                                  {detail.value}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* Componente de Avaliação */}
