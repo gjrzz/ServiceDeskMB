@@ -629,7 +629,7 @@ router.delete('/:id', async (req: AuthRequest, res) => {
     });
 
     // Deletar anexos relacionados (se houver)
-    await prisma.anexoChamado.deleteMany({
+    await prisma.anexo.deleteMany({
       where: { chamadoId: id },
     });
 
@@ -642,7 +642,7 @@ router.delete('/:id', async (req: AuthRequest, res) => {
     await prisma.logAuditoria.create({
       data: {
         usuarioId: req.userId!,
-        acao: 'DELETE_CHAMADO',
+        acao: 'EXCLUIR_CHAMADO',
         descricao: `Chamado ${id} deletado: ${chamado.titulo}`,
         ip: req.ip,
         userAgent: req.headers['user-agent'],
