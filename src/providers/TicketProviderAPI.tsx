@@ -468,6 +468,7 @@ export const TicketProviderAPI = ({ children }: { children: React.ReactNode }) =
       descricao: newTicket.description,
       prioridade: mapPriorityToAPI(newTicket.priority),
       categoria: mapCategoryToAPI(newTicket.category),
+      attachments: newTicket.attachments,
     }).then(response => {
       if (response && response.id) {
         setTickets(prev => prev.map(t => 

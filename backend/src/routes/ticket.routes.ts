@@ -7,11 +7,19 @@ const router = Router();
 router.use(authenticate);
 
 // Schemas
+const attachmentSchema = z.object({
+  name: z.string().min(1, 'Nome do anexo é obrigatório'),
+  size: z.number().nonnegative(),
+  type: z.string(),
+  url: z.string().min(1, 'URL do anexo é obrigatória'),
+});
+
 const createTicketSchema = z.object({
   titulo: z.string().min(5, 'Título deve ter no mínimo 5 caracteres'),
   descricao: z.string().min(10, 'Descrição deve ter no mínimo 10 caracteres'),
   prioridade: z.enum(['BAIXO', 'MEDIO', 'ALTO', 'CRITICO']),
   categoria: z.enum(['HARDWARE', 'SOFTWARE', 'REDE', 'ACESSO', 'OUTROS']),
+  attachments: z.array(attachmentSchema).optional(),
 });
 
 const updatePrioritySchema = z.object({
@@ -35,6 +43,22 @@ const canAccessTicket = (req: AuthRequest, chamado: any) =>
   isPrivileged(req.userPerfil) ||
   chamado.solicitanteId === req.userId ||
   chamado.responsavelId === req.userId;
+
+const generateTicketId = async () => {
+  const tickets = await prisma.chamado.findMany({
+    where: {
+      id: { startsWith: 'TKT-' },
+    },
+    select: { id: true },
+  });
+
+  const maxNumber = tickets.reduce((max, ticket) => {
+    const numberPart = parseInt(ticket.id.replace('TKT-', ''), 10);
+    return Number.isFinite(numberPart) ? Math.max(max, numberPart) : max;
+  }, 0);
+
+  return `TKT-${String(maxNumber + 1).padStart(3, '0')}`;
+};
 
 // Listar chamados
 router.get('/', async (req: AuthRequest, res) => {
@@ -152,8 +176,11 @@ router.post('/', async (req: AuthRequest, res) => {
     const slaVencimento = new Date();
     slaVencimento.setHours(slaVencimento.getHours() + slaHoras);
 
+    const id = await generateTicketId();
+
     const chamado = await prisma.chamado.create({
       data: {
+        id,
         titulo: data.titulo,
         descricao: data.descricao,
         prioridade: data.prioridade,
@@ -161,6 +188,17 @@ router.post('/', async (req: AuthRequest, res) => {
         solicitanteId: req.userId!,
         slaHoras,
         slaVencimento,
+        anexos: data.attachments?.length
+          ? {
+              create: data.attachments.map((attachment) => ({
+                nomeOriginal: attachment.name,
+                nomeArquivo: attachment.name,
+                tamanho: attachment.size,
+                mimeType: attachment.type || 'application/octet-stream',
+                url: attachment.url,
+              })),
+            }
+          : undefined,
       } as any,
       include: {
         solicitante: {
@@ -172,6 +210,7 @@ router.post('/', async (req: AuthRequest, res) => {
             avatarUrl: true,
           },
         },
+        anexos: true,
       },
     });
 

@@ -50,6 +50,7 @@ export interface CreateTicketData {
   prioridade: Priority;
   categoria: Category;
   responsavelId?: string;
+  attachments?: any[];
 }
 
 export interface UpdateTicketData {

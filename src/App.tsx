@@ -7205,9 +7205,9 @@ function MainApp() {
                 </div>
 
                 <div className="prose prose-invert max-w-none">
-                  <p className="text-text-secondary leading-relaxed">
+                  <div className="text-text-secondary leading-relaxed whitespace-pre-line">
                     {ticketAtivo.description}
-                  </p>
+                  </div>
                 </div>
 
                 {/* Componente de Avaliação */}
