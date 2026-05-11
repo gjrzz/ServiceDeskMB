@@ -149,14 +149,14 @@ Acesse `http://localhost:3000` e teste:
 - [ ] Substituir no App.tsx
 
 ### KBProvider
-- [ ] Criar KBProvider
-- [ ] Listar artigos da API
-- [ ] Criar artigo na API
-- [ ] Atualizar artigo na API
-- [ ] Deletar artigo na API
-- [ ] Busca de artigos
-- [ ] Votação
-- [ ] Substituir no App.tsx
+- [x] Criar KBProvider
+- [x] Listar artigos da API
+- [x] Criar artigo na API
+- [x] Atualizar artigo na API
+- [x] Deletar artigo na API
+- [x] Busca de artigos
+- [x] Votação
+- [x] Substituir no App.tsx
 
 ### NotificationProvider
 - [ ] Migrar para API
@@ -188,11 +188,11 @@ Acesse `http://localhost:3000` e teste:
 3. Integrar no App.tsx
 4. Testar CRUD de tickets
 
-### **Fase 3: KBProvider**
-1. Criar KBProvider
-2. Testar isoladamente
-3. Integrar no App.tsx
-4. Testar CRUD de artigos
+### **Fase 3: KBProvider** ✅
+1. ✅ Criar KBProvider
+2. ✅ Testar isoladamente
+3. ✅ Integrar no App.tsx
+4. ✅ Testar CRUD de artigos
 
 ### **Fase 4: Limpeza**
 1. Remover código legado

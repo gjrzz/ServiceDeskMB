@@ -1,22 +1,10 @@
 /**
  * Configuração da API
- * 
- * Atualize a URL do Railway após fazer o deploy:
- * 1. Faça deploy no Railway
- * 2. Vá em Settings > Networking > Generate Domain
- * 3. Copie a URL gerada (ex: https://servicedesk-backend-production-xxxx.up.railway.app)
- * 4. Cole abaixo em RAILWAY_API_URL
+ *
+ * Configure as URLs através de variáveis de ambiente:
+ * - VITE_API_URL: URL do backend em produção
+ * - Para desenvolvimento local: http://localhost:3001
  */
-
-// ========================================
-// 🔧 CONFIGURAÇÃO - ATUALIZE AQUI!
-// ========================================
-
-// URL do backend no Railway
-const RAILWAY_API_URL = 'https://servicedeskmb-production-97fa.up.railway.app';
-
-// URL local para desenvolvimento
-const LOCAL_API_URL = 'http://localhost:3001';
 
 // ========================================
 // 🌐 URL BASE DA API
@@ -24,19 +12,27 @@ const LOCAL_API_URL = 'http://localhost:3001';
 
 // Detecta automaticamente se está em produção ou desenvolvimento
 export const API_URL = (() => {
+  // Primeiro tenta variável de ambiente
+  const envApiUrl = import.meta.env.VITE_API_URL;
+  if (envApiUrl) {
+    console.log('🌐 Ambiente: Usando VITE_API_URL:', envApiUrl);
+    return envApiUrl;
+  }
+
+  // Fallback para detecção automática
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
   const isGitHubPages = hostname === 'gjrzz.github.io';
   const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
-  
+
   if (isGitHubPages) {
-    console.log('🌐 Ambiente: GitHub Pages - usando Railway API');
-    return RAILWAY_API_URL;
+    console.warn('⚠️  VITE_API_URL não definida! Usando fallback para GitHub Pages');
+    return 'https://servicedeskmb-production-97fa.up.railway.app'; // Fallback temporário
   } else if (isLocalhost) {
     console.log('🌐 Ambiente: Localhost - usando API local');
-    return LOCAL_API_URL;
+    return 'http://localhost:3001';
   } else {
-    console.log('🌐 Ambiente: Desconhecido - usando Railway API como fallback');
-    return RAILWAY_API_URL;
+    console.warn('⚠️  Ambiente desconhecido - usando fallback');
+    return 'https://servicedeskmb-production-97fa.up.railway.app'; // Fallback temporário
   }
 })();
 
@@ -181,15 +177,89 @@ export const checkApiHealth = async (): Promise<boolean> => {
  * Trata erros de requisição
  */
 export const handleApiError = (error: any): string => {
-  if (error.response?.data?.message) {
-    return error.response.data.message;
+  console.error('API Error:', error);
+
+  // Erro de rede
+  if (!navigator.onLine) {
+    return 'Sem conexão com a internet';
   }
-  
+
+  // Erro de timeout
+  if (error.name === 'AbortError') {
+    return 'Requisição cancelada por timeout';
+  }
+
+  // Erro HTTP
+  if (error.message?.includes('HTTP error!')) {
+    const status = error.message.match(/status: (\d+)/)?.[1];
+    switch (status) {
+      case '400': return 'Dados inválidos enviados';
+      case '401': return 'Sessão expirada. Faça login novamente';
+      case '403': return 'Acesso negado';
+      case '404': return 'Recurso não encontrado';
+      case '429': return 'Muitas requisições. Tente novamente em alguns minutos';
+      case '500': return 'Erro interno do servidor';
+      case '503': return 'Serviço temporariamente indisponível';
+      default: return 'Erro do servidor';
+    }
+  }
+
+  // Erro de resposta da API
   if (error.message) {
     return error.message;
   }
-  
+
   return 'Erro ao comunicar com o servidor';
+};
+
+/**
+ * Error Interceptor Global
+ * Trata erros de forma centralizada e executa ações apropriadas
+ */
+const handleResponseError = async (response: Response, url: string) => {
+  let errorData: any = {};
+
+  try {
+    errorData = await response.json();
+  } catch {
+    // Se não conseguir parsear JSON, usa mensagem genérica
+  }
+
+  const error = new Error(errorData.error || errorData.message || `HTTP ${response.status}`);
+
+  // Adiciona status à erro para identificação
+  (error as any).status = response.status;
+  (error as any).url = url;
+
+  // Tratamento específico por status
+  switch (response.status) {
+    case 401:
+      // Token expirado - redirecionar para login
+      console.warn('Token expirado, redirecionando para login');
+      // Limpar dados locais
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('mb_sessao');
+      // Redirecionar para login (se não estiver na página de login)
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
+      break;
+
+    case 403:
+      console.warn('Acesso negado:', url);
+      break;
+
+    case 429:
+      console.warn('Rate limit atingido, aguardando...');
+      // Poderia implementar retry com backoff
+      break;
+
+    default:
+      console.error(`API Error ${response.status}:`, errorData);
+  }
+
+  throw error;
 };
 
 /**
@@ -202,8 +272,7 @@ export const apiGet = async (url: string, includeAuth = true) => {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || error.message || `HTTP error! status: ${response.status}`);
+    await handleResponseError(response, url);
   }
 
   return response.json();
@@ -220,8 +289,7 @@ export const apiPost = async (url: string, data: any, includeAuth = true) => {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || error.message || `HTTP error! status: ${response.status}`);
+    await handleResponseError(response, url);
   }
 
   return response.json();
@@ -238,8 +306,7 @@ export const apiPut = async (url: string, data: any, includeAuth = true) => {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || error.message || `HTTP error! status: ${response.status}`);
+    await handleResponseError(response, url);
   }
 
   return response.json();

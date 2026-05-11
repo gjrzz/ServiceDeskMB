@@ -130,6 +130,19 @@ export const togglePublishArticle = async (id: string): Promise<Article> => {
 };
 
 /**
+ * Publica um artigo (define como publicado)
+ */
+export const publishArticle = async (id: string): Promise<Article> => {
+  try {
+    const response = await apiPost(API_ENDPOINTS.kb.publish(id), {});
+    return response;
+  } catch (error) {
+    console.error('Erro ao publicar artigo:', error);
+    throw error;
+  }
+};
+
+/**
  * Registra uma visualização no artigo
  */
 export const viewArticle = async (id: string): Promise<void> => {

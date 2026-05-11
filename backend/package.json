@@ -12,19 +12,28 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts"
   },
-  "keywords": ["servicedesk", "helpdesk", "api"],
+  "keywords": [
+    "servicedesk",
+    "helpdesk",
+    "api"
+  ],
   "author": "Monte Bravo",
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^5.9.1",
+    "@tanstack/react-query": "^5.100.9",
+    "@tanstack/react-query-devtools": "^5.100.9",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
+    "file-type": "^22.0.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
+    "pino": "^10.3.1",
+    "react-router-dom": "^7.15.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {

@@ -7,6 +7,21 @@ import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 const router = Router();
 router.use(authenticate);
 
+// Tipos MIME permitidos (baseado em magic bytes, não extensão)
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  // REMOVIDO: zip e rar por segurança (risco de malware)
+]);
+
 // Configurar multer para upload
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -16,9 +31,15 @@ const storage = multer.diskStorage({
     }
     cb(null, uploadDir);
   },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+  filename: async (req, file, cb) => {
+    try {
+      // Usar UUID ao invés de timestamp + random para evitar colisões
+      const crypto = await import('crypto');
+      const uniqueName = crypto.randomUUID();
+      cb(null, uniqueName + path.extname(file.originalname));
+    } catch (error) {
+      cb(error as Error, '');
+    }
   },
 });
 
@@ -27,16 +48,35 @@ const upload = multer({
   limits: {
     fileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760'), // 10MB
   },
-  fileFilter: (req, file, cb) => {
-    // Permitir apenas certos tipos de arquivo
-    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|xls|xlsx|txt|zip|rar/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+  fileFilter: async (req, file, cb) => {
+    try {
+      // Import dinâmico para evitar problemas de CommonJS/ESM
+      const { fileTypeFromBuffer } = await import('file-type');
 
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Tipo de arquivo não permitido'));
+      // Ler primeiros bytes do arquivo para validação
+      const buffer = fs.readFileSync(file.path);
+      const fileTypeResult = await fileTypeFromBuffer(buffer);
+
+      if (!fileTypeResult) {
+        return cb(new Error('Tipo de arquivo não reconhecido'));
+      }
+
+      // Verificar se MIME type é permitido
+      if (!ALLOWED_MIME_TYPES.has(fileTypeResult.mime)) {
+        return cb(new Error(`Tipo de arquivo não permitido: ${fileTypeResult.mime}`));
+      }
+
+      // Verificar extensão do arquivo (deve corresponder ao tipo detectado)
+      const expectedExt = fileTypeResult.ext;
+      const actualExt = path.extname(file.originalname).toLowerCase().slice(1);
+
+      if (expectedExt !== actualExt) {
+        return cb(new Error('Extensão do arquivo não corresponde ao conteúdo'));
+      }
+
+      cb(null, true);
+    } catch (error) {
+      cb(new Error('Erro ao validar arquivo'));
     }
   },
 });

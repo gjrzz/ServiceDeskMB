@@ -60,45 +60,143 @@ const generateTicketId = async () => {
   return `TKT-${String(maxNumber + 1).padStart(3, '0')}`;
 };
 
-// Listar chamados
+// Listar chamados com paginação
 router.get('/', async (req: AuthRequest, res) => {
   try {
     const isPrivilegedUser = isPrivileged(req.userPerfil);
-    
-    const chamados = await prisma.chamado.findMany({
-      where: isPrivilegedUser ? {} : { solicitanteId: req.userId },
-      include: {
-        solicitante: {
-          select: {
-            id: true,
-            nome: true,
-            email: true,
-            avatar: true,
-            avatarUrl: true,
-          },
-        },
-        responsavel: {
-          select: {
-            id: true,
-            nome: true,
-            avatar: true,
-            avatarUrl: true,
-          },
-        },
-        _count: {
-          select: {
-            atividades: true,
-            anexos: true,
-          },
-        },
-      },
-      orderBy: { criadoEm: 'desc' },
-    });
 
-    res.json(chamados);
+    // Parâmetros de paginação
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100); // Máximo 100
+    const offset = (page - 1) * limit;
+
+    // Filtros opcionais
+    const status = req.query.status as string;
+    const prioridade = req.query.prioridade as string;
+    const categoria = req.query.categoria as string;
+
+    const where: any = {};
+    if (!isPrivilegedUser) {
+      where.solicitanteId = req.userId;
+    }
+    if (status) where.status = status;
+    if (prioridade) where.prioridade = prioridade;
+    if (categoria) where.categoria = categoria;
+
+    // Buscar chamados com paginação (SEM atividades/anexos para performance)
+    const [chamados, total] = await Promise.all([
+      prisma.chamado.findMany({
+        where,
+        select: {
+          id: true,
+          titulo: true,
+          status: true,
+          prioridade: true,
+          categoria: true,
+          criadoEm: true,
+          atualizadoEm: true,
+          slaHoras: true,
+          slaVencimento: true,
+          solicitante: {
+            select: {
+              id: true,
+              nome: true,
+              avatar: true,
+              avatarUrl: true,
+            },
+          },
+          responsavel: {
+            select: {
+              id: true,
+              nome: true,
+              avatar: true,
+              avatarUrl: true,
+            },
+          },
+          _count: {
+            select: {
+              atividades: true,
+              anexos: true,
+            },
+          },
+        },
+        orderBy: { criadoEm: 'desc' },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.chamado.count({ where }),
+    ]);
+
+    res.json({
+      chamados,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    });
   } catch (error) {
     console.error('Erro ao listar chamados:', error);
     res.status(500).json({ error: 'Erro ao listar chamados' });
+  }
+});
+
+// Buscar atividades de um chamado (lazy loading)
+router.get('/:id/activities', async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    const offset = (page - 1) * limit;
+
+    const chamado = await prisma.chamado.findUnique({
+      where: { id },
+      select: { id: true, solicitanteId: true, responsavelId: true },
+    });
+
+    if (!chamado) {
+      return res.status(404).json({ error: 'Chamado não encontrado' });
+    }
+
+    if (!canAccessTicket(req, chamado)) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    const [atividades, total] = await Promise.all([
+      prisma.atividadeChamado.findMany({
+        where: { chamadoId: id },
+        include: {
+          autor: {
+            select: {
+              id: true,
+              nome: true,
+              avatar: true,
+              avatarUrl: true,
+            },
+          },
+        },
+        orderBy: { criadoEm: 'desc' },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.atividadeChamado.count({ where: { chamadoId: id } }),
+    ]);
+
+    res.json({
+      atividades,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error('Erro ao buscar atividades:', error);
+    res.status(500).json({ error: 'Erro ao buscar atividades' });
   }
 });
 

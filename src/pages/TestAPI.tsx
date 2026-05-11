@@ -224,6 +224,25 @@ export const TestAPI = () => {
     }
   };
 
+  const testCreateArticle = async () => {
+    setLoading(true);
+    try {
+      log('📝 Criando novo artigo KB...');
+      const newArticle = await KBService.createArticle({
+        titulo: 'Teste de Artigo via API',
+        conteudo: 'Este é um artigo de teste criado via API do ServiceDesk.',
+        categoria: 'Software',
+        tags: ['teste', 'api', 'kb'],
+        publicado: true
+      });
+      log('✅ Artigo criado com sucesso:', newArticle);
+    } catch (error: any) {
+      logError('Erro ao criar artigo:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ==================== NOTIFICAÇÕES ====================
 
   const testListNotifications = async () => {
@@ -355,6 +374,9 @@ export const TestAPI = () => {
                 </button>
                 <button onClick={testSearchArticles} disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-4 py-2 rounded transition">
                   Buscar "senha"
+                </button>
+                <button onClick={testCreateArticle} disabled={loading} className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 px-4 py-2 rounded transition">
+                  Criar Artigo de Teste
                 </button>
               </div>
             </div>

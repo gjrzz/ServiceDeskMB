@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../prisma';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth.middleware';
+import { revokeAllUserTokens } from '../utils/auth.utils';
 
 const router = Router();
 
@@ -344,11 +345,16 @@ router.patch('/:id/toggle-status', requireAdmin, async (req: AuthRequest, res) =
       },
     });
 
+    // Se usuário foi DESATIVADO, revogar todos os tokens
+    if (!usuarioAtualizado.ativo) {
+      await revokeAllUserTokens(id);
+    }
+
     // Log de auditoria
     await prisma.logAuditoria.create({
       data: {
         usuarioId: req.userId!,
-        acao: 'DESATIVAR_USUARIO',
+        acao: usuarioAtualizado.ativo ? 'ATIVAR_USUARIO' : 'DESATIVAR_USUARIO',
         descricao: `Usuário ${usuarioAtualizado.ativo ? 'ativado' : 'desativado'}: ${usuarioAtualizado.nome}`,
       },
     });

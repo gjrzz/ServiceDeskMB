@@ -238,26 +238,24 @@ router.post('/refresh', async (req, res) => {
 });
 
 // ============================================
-// LOGOUT
+// LOGOUT - REVOGA TODOS OS TOKENS DO USUÁRIO
 // ============================================
 
 router.post('/logout', authenticate, async (req: AuthRequest, res) => {
   try {
-    const { refreshToken } = req.body;
+    const userId = req.userId!;
 
-    if (refreshToken) {
-      // Remover refresh token do banco
-      await prisma.refreshToken.deleteMany({
-        where: { token: refreshToken },
-      });
-    }
+    // Revogar TODOS os refresh tokens do usuário
+    await prisma.refreshToken.deleteMany({
+      where: { usuarioId: userId },
+    });
 
     // Log de auditoria
     await prisma.logAuditoria.create({
       data: {
-        usuarioId: req.userId!,
+        usuarioId: userId,
         acao: 'LOGOUT',
-        descricao: 'Logout realizado',
+        descricao: 'Logout realizado - todos os tokens revogados',
         ip: req.ip,
         userAgent: req.headers['user-agent'],
       },

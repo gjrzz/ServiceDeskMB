@@ -2,10 +2,15 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import ReactDOM from "react-dom";
 import * as THREE from "three";
 import { motion, AnimatePresence } from "motion/react";
+// 🔥 NOVO: React Query para caching inteligente
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 // 🔥 NOVO: Importar AuthProvider da API
-import { AuthProvider as AuthProviderAPI, useAuth as useAuthAPI } from './providers/AuthProvider';
+import { AuthProvider as AuthProviderAPI, useAuth as useAuthAPI, useAuth } from './providers/AuthProvider';
 // 🔥 NOVO: Importar TicketProvider da API (substitui localStorage)
-import { TicketProviderAPI, useTickets as useTicketsAPI } from './providers/TicketProviderAPI';
+import { TicketProviderAPI, useTickets as useTicketsAPI, useTickets } from './providers/TicketProviderAPI';
+// 🔥 NOVO: Importar KBProvider da API
+import { KBProviderAPI, useKB } from './providers/KBProviderAPI';
 // 🔥 NOVO: Importar componente de upload de avatar
 import { AvatarUpload } from './components/AvatarUpload';
 // 🔥 NOVO: Importar URL da API para avatares
@@ -637,30 +642,6 @@ const getFileIcon = (type: string, name: string) => {
     default:
       return '📎';
   }
-};
-
-const parseTicketDescription = (text: string) => {
-  const [mainDescription, metadataBlock] = text.split(/\n{2,}---\n/);
-
-  const details = metadataBlock
-    ? metadataBlock
-        .split('\n')
-        .map(line => line.replace(/\*\*/g, '').trim())
-        .filter(line => line.length > 0)
-        .map(line => {
-          const [label, ...rest] = line.split(':');
-          return {
-            label: label.trim(),
-            value: rest.join(':').trim(),
-          };
-        })
-        .filter(item => item.value)
-    : [];
-
-  return {
-    mainDescription: (mainDescription || '').trim(),
-    details,
-  };
 };
 
 const generateFileUrl = (file: File | Attachment) => {
@@ -1825,7 +1806,7 @@ const ActivityLogView = () => {
     // Criar o chamado
     const novoChamado = criarChamado({
       title: titulo, // Usar 'title' ao invés de 'titulo'
-      description: `${descricao}\n\n---\nOrigem: ${origem}\n${observacoes ? `Observações: ${observacoes}` : ''}`,
+      description: `${descricao}\n\n---\n**Origem:** ${origem}\n${observacoes ? `**Observações:** ${observacoes}` : ''}`,
       priority: prioridade,
       category: categoria,
       status,
@@ -5902,216 +5883,6 @@ export interface Artigo {
   atualizadoEm: Date;
 }
 
-const ARTIGOS_INICIAIS: Artigo[] = [
-  {
-    id: 'kb001',
-    titulo: 'Como redefinir sua senha corporativa',
-    categoria: 'Acesso',
-    conteudo: `## Visão Geral\nEste artigo explica como redefinir sua senha corporativa de forma segura.\n\n## Passo a Passo\n\n**1. Acesse o portal de redefinição**\nAbra o navegador e acesse: https://passwordreset.microsoftonline.com\n\n**2. Informe seu e-mail corporativo**\nDigite seu e-mail no formato nome@montebravo.com.br e clique em "Próximo".\n\n**3. Escolha o método de verificação**\nSelecione entre: aplicativo Microsoft Authenticator, SMS ou e-mail alternativo.\n\n**4. Crie a nova senha**\nA senha deve ter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e símbolos.\n\n**5. Confirme e aguarde**\nApós a confirmação, aguarde 2 minutos para a sincronização em todos os sistemas.\n\n## Observações\n- Após 3 tentativas incorretas a conta será bloqueada\n- Em caso de bloqueio, abra um chamado para o TI\n- A senha expira a cada 90 dias`,
-    tags: ['senha', 'acesso', 'microsoft', 'login'],
-    autor: 'Gabriel Juarez',
-    autorId: 'u001',
-    visualizacoes: 142,
-    util: 38,
-    naoUtil: 3,
-    publicado: true,
-    criadoEm: new Date('2024-01-20'),
-    atualizadoEm: new Date('2024-03-15')
-  },
-  {
-    id: 'kb002',
-    titulo: 'Guia de configuração da VPN — Windows e Mac',
-    categoria: 'Rede',
-    conteudo: `## O que é a VPN corporativa?\nA VPN (Virtual Private Network) permite que você acesse a rede interna da Monte Bravo de forma segura fora do escritório.\n\n## Instalação no Windows\n\n**1. Baixe o cliente VPN**\nAcesse \\\\servidor-ti\\software\\vpn e copie o instalador para seu computador.\n\n**2. Execute a instalação**\nClique duas vezes no instalador e siga as instruções. Aceite os termos e clique em "Instalar".\n\n**3. Configure o servidor**\n- Abra o cliente VPN após instalação\n- Clique em "Nova Conexão"\n- Servidor: vpn.montebravo.com.br\n- Protocolo: IKEv2\n\n**4. Conecte com suas credenciais**\nUse seu e-mail e senha corporativos.\n\n## Instalação no Mac\n\n**1. Acesse Preferências do Sistema → Rede**\n**2. Clique no "+" para adicionar nova conexão**\n**3. Interface: VPN | Tipo: IKEv2**\n**4. Servidor: vpn.montebravo.com.br**\n**5. Autenticação: usuário e senha corporativos**\n\n## Problemas comuns\n- **Erro de autenticação**: verifique se sua senha não expirou\n- **Conexão lenta**: tente o servidor alternativo vpn2.montebravo.com.br\n- **Não conecta no 4G**: desative o firewall temporariamente para teste`,
-    tags: ['vpn', 'rede', 'acesso remoto', 'windows', 'mac'],
-    autor: 'Gabriel Juarez',
-    autorId: 'u001',
-    visualizacoes: 89,
-    util: 27,
-    naoUtil: 1,
-    publicado: true,
-    criadoEm: new Date('2024-02-01'),
-    atualizadoEm: new Date('2024-02-01')
-  },
-  {
-    id: 'kb003',
-    titulo: 'Configurando o Microsoft Authenticator (MFA)',
-    categoria: 'Segurança',
-    conteudo: `## Por que usar MFA?\nA autenticação multifator adiciona uma camada extra de segurança à sua conta, protegendo contra acessos não autorizados mesmo que sua senha seja comprometida.\n\n## Instalação do aplicativo\n\n**Android:** Acesse a Play Store, busque "Microsoft Authenticator" e instale.\n**iPhone:** Acesse a App Store, busque "Microsoft Authenticator" e instale.\n\n## Configuração inicial\n\n**1. Acesse o portal de segurança**\nNo computador, acesse: https://aka.ms/mfasetup\n\n**2. Adicione o método de autenticação**\nClique em "Adicionar método" → selecione "Aplicativo autenticador"\n\n**3. Escaneie o QR Code**\nAbra o Microsoft Authenticator no celular → toque em "+" → "Conta corporativa ou de estudante" → "Escanear QR Code"\n\n**4. Confirme a configuração**\nO portal exibirá um número de 2 dígitos. Selecione este número no aplicativo para confirmar.\n\n## Uso diário\nAo fazer login, após inserir senha, o aplicativo enviará uma notificação. Abra e aprove. Se não aparecer notificação, abra o app e use o código de 6 dígitos mostrado na tela.\n\n## Perdi o celular — o que fazer?\nAbra um chamado urgente para o TI imediatamente. Não compartilhe seus códigos com ninguém.`,
-    tags: ['mfa', 'autenticador', 'segurança', '2fa', 'microsoft'],
-    autor: 'Gabriel Juarez',
-    autorId: 'u001',
-    visualizacoes: 203,
-    util: 61,
-    naoUtil: 2,
-    publicado: true,
-    criadoEm: new Date('2024-01-25'),
-    atualizadoEm: new Date('2024-04-01')
-  },
-  {
-    id: 'kb004',
-    titulo: 'Checklist de configuração inicial do MacBook',
-    categoria: 'Hardware',
-    conteudo: `## Primeiros passos ao receber seu MacBook\n\nEste checklist garante que seu MacBook esteja configurado corretamente com todas as ferramentas necessárias.\n\n## ✅ Checklist Completo\n\n**Configurações básicas do sistema:**\n- [ ] Ligar e seguir o assistente de configuração inicial\n- [ ] Conectar ao Wi-Fi corporativo (rede: MonteBravo-Corp, solicitar senha ao TI)\n- [ ] Fazer login com Apple ID corporativo (solicitar ao TI)\n- [ ] Ativar FileVault (criptografia do disco)\n- [ ] Configurar senha de tela de bloqueio\n\n**Instalar aplicativos obrigatórios:**\n- [ ] Company Portal (instalar via link enviado pelo TI)\n- [ ] Microsoft Office 365 (via Company Portal)\n- [ ] Microsoft Teams\n- [ ] Cisco AnyConnect (VPN)\n- [ ] Qualys Cloud Agent (segurança — instalado automaticamente pelo TI)\n\n**Configurar contas:**\n- [ ] Outlook: adicionar conta corporativa\n- [ ] Teams: fazer login\n- [ ] Configurar MFA (ver artigo específico)\n\n**Antes de usar em produção:**\n- [ ] Confirmar com TI que o dispositivo aparece no Intune\n- [ ] Testar VPN\n- [ ] Testar acesso aos sistemas internos\n\n## Dúvidas?\nAbra um chamado em Categoria: Hardware | Prioridade: Médio`,
-    tags: ['macbook', 'configuração', 'intune', 'setup', 'onboarding'],
-    autor: 'Gabriel Juarez',
-    autorId: 'u001',
-    visualizacoes: 56,
-    util: 19,
-    naoUtil: 0,
-    publicado: true,
-    criadoEm: new Date('2024-03-10'),
-    atualizadoEm: new Date('2024-03-10')
-  },
-  {
-    id: 'kb005',
-    titulo: 'Política de instalação de softwares',
-    categoria: 'Software',
-    conteudo: `## Regra geral\nA instalação de softwares em equipamentos da Monte Bravo deve ser aprovada e realizada pela equipe de TI. Softwares não autorizados podem representar riscos de segurança e violar políticas da empresa.\n\n## O que pode ser instalado sem aprovação\n- Softwares já presentes no catálogo do Company Portal\n- Extensões de navegador de produtividade (aprovadas pelo TI)\n\n## Como solicitar um novo software\n\n**1. Abra um chamado**\nCategoria: Software | Título: "Solicitação de instalação: [nome do software]"\n\n**2. Inclua na descrição:**\n- Nome e versão do software\n- Finalidade e justificativa de uso\n- Link para download oficial\n- Quantos usuários precisarão usar\n\n**3. Aguarde aprovação**\nO TI avaliará compatibilidade, licenciamento e segurança. Prazo: até 3 dias úteis.\n\n**4. Instalação**\nApós aprovação, o TI realizará a instalação remotamente ou via Company Portal.\n\n## Softwares bloqueados\nSão bloqueados por política: torrents, softwares de acesso remoto não aprovados, clientes VPN alternativos, e qualquer software com licença crackeada.\n\n## Consequências\nInstalação não autorizada pode resultar em advertência e remoção imediata do equipamento para análise.`,
-    tags: ['software', 'política', 'instalação', 'segurança', 'TI'],
-    autor: 'Gabriel Juarez',
-    autorId: 'u001',
-    visualizacoes: 78,
-    util: 22,
-    naoUtil: 4,
-    publicado: true,
-    criadoEm: new Date('2024-02-15'),
-    atualizadoEm: new Date('2024-02-15')
-  }
-];
-
-interface KBContextType {
-  artigos: Artigo[];
-  criarArtigo: (dados: Partial<Artigo>) => Artigo;
-  editarArtigo: (id: string, dados: Partial<Artigo>) => void;
-  deletarArtigo: (id: string) => void;
-  deletarArtigos: (ids: string[]) => void;
-  registrarVisualizacao: (id: string) => void;
-  votarArtigo: (id: string, util: boolean) => void;
-  getArtigosFiltrados: (busca: string, categoria: string) => Artigo[];
-}
-
-const KBContext = React.createContext<KBContextType | undefined>(undefined);
-
-export const useKB = () => {
-  const context = React.useContext(KBContext);
-  if (!context) throw new Error("useKB must be used within a KBProvider");
-  return context;
-};
-
-export const KBProvider = ({ children }: { children: React.ReactNode }) => {
-  const { usuarioLogado, registrarExclusao } = useAuth();
-  const [artigos, setArtigos] = useState<Artigo[]>(() => {
-    const saved = localStorage.getItem('mb_artigos');
-    return saved ? JSON.parse(saved, (key, val) => 
-      ['criadoEm','atualizadoEm'].includes(key) ? new Date(val) : val
-    ) : ARTIGOS_INICIAIS;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('mb_artigos', JSON.stringify(artigos));
-  }, [artigos]);
-
-  const { showToast, criarNotificacao } = useAppContext();
-
-  const deletarArtigo = (id: string) => {
-    const artigo = artigos.find(a => a.id === id);
-    setArtigos(prev => {
-      const novo = prev.filter(a => a.id !== id);
-      localStorage.setItem('mb_artigos', JSON.stringify(novo));
-      return novo;
-    });
-    registrarExclusao('artigo', id, artigo?.titulo || id);
-    showToast(`Artigo excluído com sucesso`, 'success');
-  };
-
-  const deletarArtigos = (ids: string[]) => {
-    setArtigos(prev => {
-      const novo = prev.filter(a => !ids.includes(a.id));
-      localStorage.setItem('mb_artigos', JSON.stringify(novo));
-      return novo;
-    });
-    const articlesToDelete = artigos.filter(a => ids.includes(a.id));
-    articlesToDelete.forEach(a => registrarExclusao('artigo', a.id, a.titulo));
-    showToast(`${ids.length} artigos excluídos`, 'success');
-  };
-
-  const criarArtigo = (dados: Partial<Artigo>) => {
-    const novo: Artigo = {
-      id: 'kb' + Date.now(),
-      ...dados,
-      autor: usuarioLogado?.nome || 'Usuário',
-      autorId: usuarioLogado?.id || 'u000',
-      visualizacoes: 0,
-      util: 0,
-      naoUtil: 0,
-      criadoEm: new Date(),
-      atualizadoEm: new Date()
-    } as Artigo;
-    setArtigos(prev => [novo, ...prev]);
-
-    criarNotificacao({
-      tipo: 'kb_criado',
-      titulo: 'Novo artigo na Base de Conhecimento',
-      mensagem: `"${novo.titulo}" foi publicado por ${usuarioLogado?.nome}`,
-      linkTipo: 'artigo',
-      linkId: novo.id,
-      destinatarios: ['todos']
-    });
-
-    return novo;
-  };
-
-  const editarArtigo = (id: string, dados: Partial<Artigo>) => {
-    const artigo = artigos.find(a => a.id === id);
-    if (!artigo) return;
-
-    setArtigos(prev => prev.map(a => 
-      a.id === id ? { ...a, ...dados, atualizadoEm: new Date() } : a
-    ));
-
-    criarNotificacao({
-      tipo: 'kb_editado',
-      titulo: 'Artigo atualizado',
-      mensagem: `"${dados.titulo || artigo.titulo}" foi atualizado por ${usuarioLogado?.nome}`,
-      linkTipo: 'artigo',
-      linkId: id,
-      destinatarios: ['admin']
-    });
-  };
-
-  const registrarVisualizacao = (id: string) => {
-    setArtigos(prev => prev.map(a =>
-      a.id === id ? { ...a, visualizacoes: a.visualizacoes + 1 } : a
-    ));
-  };
-
-  const votarArtigo = (id: string, util: boolean) => {
-    setArtigos(prev => prev.map(a =>
-      a.id === id
-        ? { ...a, util: util ? a.util + 1 : a.util, naoUtil: !util ? a.naoUtil + 1 : a.naoUtil }
-        : a
-    ));
-  };
-
-  const getArtigosFiltrados = (busca: string, categoria: string) => {
-    return artigos.filter(a => {
-      const matchBusca = !busca || 
-        (a.titulo || "").toLowerCase().includes((busca || "").toLowerCase()) ||
-        a.tags.some(t => (t || "").toLowerCase().includes((busca || "").toLowerCase())) ||
-        (a.conteudo || "").toLowerCase().includes((busca || "").toLowerCase());
-      const matchCategoria = !categoria || categoria === 'todas' || a.categoria === categoria;
-      return matchBusca && matchCategoria && (a.publicado || usuarioLogado?.perfil === 'admin');
-    });
-  };
-
-  return (
-    <KBContext.Provider value={{ artigos, criarArtigo, editarArtigo, deletarArtigo, deletarArtigos, registrarVisualizacao, votarArtigo, getArtigosFiltrados }}>
-      {children}
-    </KBContext.Provider>
-  );
-};
-
 function formatarTempoRelativo(data: Date | string) {
   const agora = new Date();
   const diff = agora.getTime() - new Date(data).getTime();
@@ -7229,30 +7000,9 @@ function MainApp() {
                 </div>
 
                 <div className="prose prose-invert max-w-none">
-                  {(() => {
-                    const { mainDescription, details } = parseTicketDescription(ticketAtivo.description || '');
-                    return (
-                      <>
-                        <p className="text-text-secondary leading-relaxed whitespace-pre-line">
-                          {mainDescription}
-                        </p>
-                        {details.length > 0 && (
-                          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                            {details.map((detail, index) => (
-                              <div key={index} className="rounded-2xl border border-border-subtle bg-bg-surface p-4">
-                                <p className="text-text-muted text-[11px] uppercase tracking-[0.22em] mb-1">
-                                  {detail.label}
-                                </p>
-                                <p className="text-text-primary text-sm whitespace-pre-line">
-                                  {detail.value}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
+                  <p className="text-text-secondary leading-relaxed">
+                    {ticketAtivo.description}
+                  </p>
                 </div>
 
                 {/* Componente de Avaliação */}
@@ -7438,6 +7188,32 @@ function MainApp() {
   );
 }
 
+// ============================================
+// QUERY CLIENT - CACHING INTELIGENTE
+// ============================================
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      cacheTime: 10 * 60 * 1000, // 10 minutos
+      retry: (failureCount, error: any) => {
+        // Não retry em erros 4xx (cliente)
+        if (error?.status >= 400 && error?.status < 500) {
+          return false;
+        }
+        // Retry até 3 vezes para outros erros
+        return failureCount < 3;
+      },
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+    },
+    mutations: {
+      retry: false, // Mutations não fazem retry automático
+    },
+  },
+});
+
 export default function App() {
   // Inicializar Three.js background
   useEffect(() => {
@@ -7496,8 +7272,11 @@ export default function App() {
       // Variável de contagem FORA do loop de animação
       let count = 0;
       let rafId: number | null = null;
+      let isAnimating = true;
 
       function animate() {
+        if (!isAnimating) return;
+
         rafId = requestAnimationFrame(animate);
 
         // Atualizar posições Y
@@ -7518,6 +7297,26 @@ export default function App() {
         renderer.render(scene, camera);
         count += 0.08;
       }
+
+      // Controle de visibilidade da aba
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          // Pausar animação quando aba não está visível
+          isAnimating = false;
+          if (rafId) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+          }
+        } else {
+          // Retomar animação quando aba volta a ser visível
+          if (!isAnimating) {
+            isAnimating = true;
+            animate();
+          }
+        }
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
 
       // Iniciar animação
       animate();
@@ -7540,6 +7339,7 @@ export default function App() {
       // Cleanup function
       return () => {
         window.removeEventListener('resize', handleResize);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
         if (rafId) {
           cancelAnimationFrame(rafId);
         }
@@ -7681,33 +7481,34 @@ export default function App() {
   }, [confirmDialog.aberto]);
 
   return (
-    <AppContext.Provider value={{
-      pedirConfirmacao,
-      fecharConfirm,
-      showToast,
-      confirmDialog,
-      notificacoes,
-      criarNotificacao,
-      marcarComoLida,
-      marcarTodasComoLidas,
-      deletarNotificacao,
-      limparTodasNotificacoes,
-      getNotificacoesDoUsuario,
-      getNaoLidas,
-      navegarParaChamado,
-      navegarParaArtigo
-    }}>
-      <ThemeProvider>
-        <ConfigProvider>
-          <AuthProvider>
-            <TicketProviderAPI>
-              <KBProvider>
-                <MainApp />
-              </KBProvider>
-            </TicketProviderAPI>
-          </AuthProvider>
-        </ConfigProvider>
-      </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <AppContext.Provider value={{
+        pedirConfirmacao,
+        fecharConfirm,
+        showToast,
+        confirmDialog,
+        notificacoes,
+        criarNotificacao,
+        marcarComoLida,
+        marcarTodasComoLidas,
+        deletarNotificacao,
+        limparTodasNotificacoes,
+        getNotificacoesDoUsuario,
+        getNaoLidas,
+        navegarParaChamado,
+        navegarParaArtigo
+      }}>
+        <ThemeProvider>
+          <ConfigProvider>
+            <AuthProvider>
+              <TicketProviderAPI>
+                <KBProviderAPI>
+                  <MainApp />
+                </KBProviderAPI>
+              </TicketProviderAPI>
+            </AuthProvider>
+          </ConfigProvider>
+        </ThemeProvider>
 
       {/* Toast Notification */}
       <AnimatePresence>
@@ -7750,5 +7551,9 @@ export default function App() {
 
       <ConfirmDialog />
     </AppContext.Provider>
+
+    {/* React Query DevTools - apenas em desenvolvimento */}
+    {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
+    </QueryClientProvider>
   );
 }
