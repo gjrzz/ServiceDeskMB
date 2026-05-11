@@ -1,10 +1,11 @@
-import express from 'express';
+import express, { Request, Response, NextFunction, RequestHandler } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 import { prisma } from './prisma';
 import logger from './utils/logger';
+import { AuthRequest } from './middleware/auth.middleware';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -87,11 +88,12 @@ const createUserRateLimit = (options: {
   message: string;
   skipSuccessfulRequests?: boolean;
   skipFailedRequests?: boolean;
-}) => {
+}) : RequestHandler => {
   const userRequests = new Map<string, { count: number; resetTime: number }>();
 
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
-    const userId = req.userId;
+  return (req, res, next) => {
+    const authReq = req as AuthRequest;
+    const userId = authReq.userId;
     const now = Date.now();
 
     // Para rotas públicas (sem autenticação), usa IP
